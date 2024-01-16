@@ -198,13 +198,8 @@ EFI_STATUS EFIAPI InstallBootMgfwHooks(EFI_HANDLE ImageHandle)
 	if (!ArchStartBootApplication)
 		return EFI_NOT_FOUND;
 
-#if WINVER >= 1703
 	Print(L"BootMgfw.BlImgStartBootApplication -> 0x%p\n", ArchStartBootApplication);
 	MakeInlineHook(&BootMgfwShitHook, ArchStartBootApplication, &ArchStartBootApplicationHook, TRUE);
-#else
-	Print(L"BootMgfw.BlImgStartBootApplication -> 0x%p\n", RESOLVE_RVA(ArchStartBootApplication, 5, 1));
-	MakeInlineHook(&BootMgfwShitHook, RESOLVE_RVA(ArchStartBootApplication, 5, 1), &ArchStartBootApplicationHook, TRUE);
-#endif
 	return EFI_SUCCESS;
 }
 

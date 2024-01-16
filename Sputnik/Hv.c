@@ -1,9 +1,9 @@
 #include "Hv.h"
 
-PVOYAGER_T PayLoadDataPtr = NULL;
-VOID* MapModule(PVOYAGER_T VoyagerData, UINT8* ImageBase)
+PSPUTNIK_T PayLoadDataPtr = NULL;
+VOID* MapModule(PSPUTNIK_T SputnikData, UINT8* ImageBase)
 {
-	if (!VoyagerData || !ImageBase)
+	if (!SputnikData || !ImageBase)
 		return NULL;
 
 	EFI_IMAGE_DOS_HEADER* dosHeaders = (EFI_IMAGE_DOS_HEADER*)ImageBase;
@@ -14,7 +14,7 @@ VOID* MapModule(PVOYAGER_T VoyagerData, UINT8* ImageBase)
 	if (ntHeaders->Signature != EFI_IMAGE_NT_SIGNATURE)
 		return NULL;
 
-	MemCopy(VoyagerData->ModuleBase, ImageBase, ntHeaders->OptionalHeader.SizeOfHeaders);
+	MemCopy(SputnikData->ModuleBase, ImageBase, ntHeaders->OptionalHeader.SizeOfHeaders);
 	EFI_IMAGE_SECTION_HEADER* sections = (EFI_IMAGE_SECTION_HEADER*)((UINT8*)&ntHeaders->OptionalHeader + ntHeaders->FileHeader.SizeOfOptionalHeader);
 	for (UINT32 i = 0; i < ntHeaders->FileHeader.NumberOfSections; ++i) 
 	{
@@ -23,7 +23,7 @@ VOID* MapModule(PVOYAGER_T VoyagerData, UINT8* ImageBase)
 		{
 			MemCopy
 			(
-				VoyagerData->ModuleBase + section->VirtualAddress,
+				SputnikData->ModuleBase + section->VirtualAddress,
 				ImageBase + section->PointerToRawData,
 				section->SizeOfRawData
 			);
@@ -31,17 +31,17 @@ VOID* MapModule(PVOYAGER_T VoyagerData, UINT8* ImageBase)
 	}
 
 	EFI_IMAGE_EXPORT_DIRECTORY* ExportDir = (EFI_IMAGE_EXPORT_DIRECTORY*)(
-		VoyagerData->ModuleBase + ntHeaders->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
+		SputnikData->ModuleBase + ntHeaders->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
 
-	UINT32* Address = (UINT32*)(VoyagerData->ModuleBase + ExportDir->AddressOfFunctions);
-	UINT32* Name = (UINT32*)(VoyagerData->ModuleBase + ExportDir->AddressOfNames);
-	UINT16* Ordinal = (UINT16*)(VoyagerData->ModuleBase + ExportDir->AddressOfNameOrdinals);
+	UINT32* Address = (UINT32*)(SputnikData->ModuleBase + ExportDir->AddressOfFunctions);
+	UINT32* Name = (UINT32*)(SputnikData->ModuleBase + ExportDir->AddressOfNames);
+	UINT16* Ordinal = (UINT16*)(SputnikData->ModuleBase + ExportDir->AddressOfNameOrdinals);
 
 	for (UINT16 i = 0; i < ExportDir->AddressOfFunctions; i++)
 	{
-		if (AsciiStrStr(VoyagerData->ModuleBase + Name[i], "voyager_context"))
+		if (AsciiStrStr(SputnikData->ModuleBase + Name[i], "sputnik_context"))
 		{
-			*(VOYAGER_T*)(VoyagerData->ModuleBase + Address[Ordinal[i]]) = *VoyagerData;
+			*(SPUTNIK_T*)(SputnikData->ModuleBase + Address[Ordinal[i]]) = *SputnikData;
 			break; // DO NOT REMOVE? #Stink Code 2020...
 		}
 	}
@@ -50,12 +50,12 @@ VOID* MapModule(PVOYAGER_T VoyagerData, UINT8* ImageBase)
 	EFI_IMAGE_DATA_DIRECTORY* baseRelocDir = &ntHeaders->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC];
 	if (baseRelocDir->VirtualAddress) 
 	{
-		EFI_IMAGE_BASE_RELOCATION* reloc = (EFI_IMAGE_BASE_RELOCATION*)(VoyagerData->ModuleBase + baseRelocDir->VirtualAddress);
+		EFI_IMAGE_BASE_RELOCATION* reloc = (EFI_IMAGE_BASE_RELOCATION*)(SputnikData->ModuleBase + baseRelocDir->VirtualAddress);
 		for (UINT32 currentSize = 0; currentSize < baseRelocDir->Size; ) 
 		{
 			UINT32 relocCount = (reloc->SizeOfBlock - sizeof(EFI_IMAGE_BASE_RELOCATION)) / sizeof(UINT16);
 			UINT16* relocData = (UINT16*)((UINT8*)reloc + sizeof(EFI_IMAGE_BASE_RELOCATION));
-			UINT8* relocBase = VoyagerData->ModuleBase + reloc->VirtualAddress;
+			UINT8* relocBase = SputnikData->ModuleBase + reloc->VirtualAddress;
 
 			for (UINT32 i = 0; i < relocCount; ++i, ++relocData) 
 			{
@@ -70,7 +70,7 @@ VOID* MapModule(PVOYAGER_T VoyagerData, UINT8* ImageBase)
 				case EFI_IMAGE_REL_BASED_DIR64: 
 				{
 					UINT64* rva = (UINT64*)(relocBase + offset);
-					*rva = (UINT64)(VoyagerData->ModuleBase + (*rva - ntHeaders->OptionalHeader.ImageBase));
+					*rva = (UINT64)(SputnikData->ModuleBase + (*rva - ntHeaders->OptionalHeader.ImageBase));
 					break;
 				}
 				default:
@@ -83,22 +83,22 @@ VOID* MapModule(PVOYAGER_T VoyagerData, UINT8* ImageBase)
 		}
 	}
 
-	return VoyagerData->ModuleBase + ntHeaders->OptionalHeader.AddressOfEntryPoint;
+	return SputnikData->ModuleBase + ntHeaders->OptionalHeader.AddressOfEntryPoint;
 }
 
-VOID MakeVoyagerData
+VOID MakeSputnikData
 (
-	PVOYAGER_T VoyagerData,
+	PSPUTNIK_T SputnikData,
 	VOID* HypervAlloc,
 	UINT64 HypervAllocSize,
 	VOID* PayLoadBase,
 	UINT64 PayLoadSize
 )
 {
-	VoyagerData->HypervModuleBase = HypervAlloc;
-	VoyagerData->HypervModuleSize = HypervAllocSize;
-	VoyagerData->ModuleBase = PayLoadBase;
-	VoyagerData->ModuleSize = PayLoadSize;
+	SputnikData->HypervModuleBase = HypervAlloc;
+	SputnikData->HypervModuleSize = HypervAllocSize;
+	SputnikData->ModuleBase = PayLoadBase;
+	SputnikData->ModuleSize = PayLoadSize;
 
 	VOID* VmExitHandler =
 		FindPattern(
@@ -120,7 +120,7 @@ VOID MakeVoyagerData
 		UINT64 VmExitHandlerCall = ((UINT64)VmExitHandler) + 19; // + 19 bytes to -> call vmexit_c_handler
 		UINT64 VmExitHandlerCallRip = (UINT64)VmExitHandlerCall + 5; // + 5 bytes because "call vmexit_c_handler" is 5 bytes
 		UINT64 VmExitFunction = VmExitHandlerCallRip + *(INT32*)((UINT64)(VmExitHandlerCall + 1)); // + 1 to skip E8 (call) and read 4 bytes (RVA)
-		VoyagerData->VmExitHandlerRva = ((UINT64)PayLoadEntry(PayLoadBase)) - (UINT64)VmExitFunction;
+		SputnikData->VmExitHandlerRva = ((UINT64)PayLoadEntry(PayLoadBase)) - (UINT64)VmExitFunction;
 	}
 	else // else AMD
 	{
@@ -134,7 +134,7 @@ VOID MakeVoyagerData
 
 		UINT64 VmExitHandlerCallRip = (UINT64)VmExitHandlerCall + 5; // + 5 bytes because "call vmexit_c_handler" is 5 bytes
 		UINT64 VmExitHandlerFunc = VmExitHandlerCallRip + *(INT32*)((UINT64)VmExitHandlerCall + 1); // + 1 to skip E8 (call) and read 4 bytes (RVA)
-		VoyagerData->VmExitHandlerRva = ((UINT64)PayLoadEntry(PayLoadBase)) - VmExitHandlerFunc;
+		SputnikData->VmExitHandlerRva = ((UINT64)PayLoadEntry(PayLoadBase)) - VmExitHandlerFunc;
 	}
 }
 

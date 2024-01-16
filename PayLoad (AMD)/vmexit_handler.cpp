@@ -107,5 +107,5 @@ auto vmexit_handler(void* unknown, svm::pguest_context context) -> svm::pgs_base
 
 	return reinterpret_cast<svm::vcpu_run_t>(
 		reinterpret_cast<u64>(&vmexit_handler) -
-			svm::voyager_context.vcpu_run_rva)(unknown, context);
+			svm::sputnik_context.vcpu_run_rva)(unknown, context);
 }

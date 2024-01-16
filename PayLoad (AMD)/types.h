@@ -419,7 +419,7 @@ namespace svm
 	// and vmsave instruction... this means I had to hunt down the damn
 	// VMCB location... this is the pointer chain to the VMCB...
 	//
-	// TODO: could sig scan for this in Voyager...
+	// TODO: could sig scan for this in Sputnik...
 	__forceinline auto get_vmcb() -> pvmcb
 	{
 		return *reinterpret_cast<svm::pvmcb*>(
@@ -486,15 +486,15 @@ namespace svm
 	using vcpu_run_t = pgs_base_struct (__fastcall*)(void*, guest_context*);
 
 	#pragma pack(push, 1)
-	typedef struct _voyager_t
+	typedef struct _SPUTNIK_T
 	{
 		u64 vcpu_run_rva;
 		u64 hyperv_module_base;
 		u64 hyperv_module_size;
 		u64 record_base;
 		u64 record_size;
-	} voyager_t, * pvoyager_t;
+	} SPUTNIK_T, * pSPUTNIK_T;
 	#pragma pack(pop)
 
-	__declspec(dllexport) inline voyager_t voyager_context;
+	__declspec(dllexport) inline SPUTNIK_T sputnik_context;
 }

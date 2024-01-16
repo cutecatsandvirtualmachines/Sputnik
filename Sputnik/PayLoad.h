@@ -20,14 +20,14 @@
 
 extern VOID* PayLoad;
 #pragma pack(push, 1)
-typedef struct _VOYAGER_T
+typedef struct _SPUTNIK_T
 {
 	UINT64 VmExitHandlerRva;
 	UINT64 HypervModuleBase;
 	UINT64 HypervModuleSize;
 	UINT64 ModuleBase;
 	UINT64 ModuleSize;
-} VOYAGER_T, *PVOYAGER_T;
+} SPUTNIK_T, *PSPUTNIK_T;
 #pragma pack(pop)
 
 #define WINDOWS_BOOTMGFW_PATH L"\\efi\\microsoft\\boot\\bootmgfw.efi"

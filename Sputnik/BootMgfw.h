@@ -1,19 +1,8 @@
 #pragma once
 #include "WinLoad.h"
 
-#if WINVER > 1709
 #define START_BOOT_APPLICATION_SIG "\x48\x8B\xC4\x48\x89\x58\x20\x44\x89\x40\x18\x48\x89\x50\x10\x48\x89\x48\x08\x55\x56\x57\x41\x54"
 #define START_BOOT_APPLICATION_MASK "xxxxxxxxxxxxxxxxxxxxxxxx"
-#elif WINVER == 1709
-#define START_BOOT_APPLICATION_SIG "\x48\x8B\xC4\x48\x89\x58\x00\x44\x89\x40\x00\x48\x89\x50\x00\x48\x89\x48\x00\x55\x56\x57\x41\x54\x41\x55\x41\x56\x41\x57\x48\x8D\x68"
-#define START_BOOT_APPLICATION_MASK "xxxxxx?xxx?xxx?xxx?xxxxxxxxxxxxxx"
-#elif WINVER == 1703
-#define START_BOOT_APPLICATION_SIG "\x48\x8B\xC4\x48\x89\x58\x00\x44\x89\x48\x00\x44\x89\x40\x00\x48\x89\x48\x00\x55\x56\x57\x41\x54\x41\x55\x41\x56\x41\x57\x48\x8D\x68\xA9"
-#define START_BOOT_APPLICATION_MASK "xxxxxx?xxx?xxx?xxx?xxxxxxxxxxxxxxx"
-#elif WINVER < 1703
-#define START_BOOT_APPLICATION_SIG "\xE8\x00\x00\x00\x00\x48\x8B\xCE\x8B\xD8\xE8\x00\x00\x00\x00\x41\x8B\xCF"
-#define START_BOOT_APPLICATION_MASK "x????xxxxxx????xxx"
-#endif
 static_assert(sizeof(START_BOOT_APPLICATION_SIG) == sizeof(START_BOOT_APPLICATION_MASK), "signature and mask size's dont match...");
 
 #define WINDOWS_BOOTMGFW_PATH L"\\efi\\microsoft\\boot\\bootmgfw.efi"

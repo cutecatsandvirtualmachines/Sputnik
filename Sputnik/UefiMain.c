@@ -1,7 +1,7 @@
 #include "BootMgfw.h"
 #include "SplashScreen.h"
 
-CHAR8* gEfiCallerBaseName = "Voyager";
+CHAR8* gEfiCallerBaseName = "Sputnik";
 const UINT32 _gUefiDriverRevision = 0x200;
 
 EFI_STATUS EFIAPI UefiUnload(EFI_HANDLE ImageHandle)

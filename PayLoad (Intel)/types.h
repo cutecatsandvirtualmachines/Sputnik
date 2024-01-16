@@ -110,14 +110,14 @@ using vmexit_handler_t = void(__fastcall*)(pcontext_t context, void* unknown);
 #endif
 
 #pragma pack(push, 1)
-typedef struct _voyager_t
+typedef struct _SPUTNIK_T
 {
 	u64 vmexit_handler_rva;
 	u64 hyperv_module_base;
 	u64 hyperv_module_size;
 	u64 payload_base;
 	u64 payload_size;
-} voyager_t, *pvoyager_t;
+} SPUTNIK_T, *pSPUTNIK_T;
 #pragma pack(pop)
 
-__declspec(dllexport) inline voyager_t voyager_context;
+__declspec(dllexport) inline SPUTNIK_T sputnik_context;

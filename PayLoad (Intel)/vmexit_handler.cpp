@@ -137,5 +137,5 @@ void vmexit_handler(pcontext_t context, void* unknown)
 	// call original vmexit handler...
 	reinterpret_cast<vmexit_handler_t>(
 		reinterpret_cast<u64>(&vmexit_handler) -
-			voyager_context.vmexit_handler_rva)(context, unknown);
+			sputnik_context.vmexit_handler_rva)(context, unknown);
 }

@@ -8,6 +8,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PayLoad (AMD)", "PayLoad (AMD)\PayLoad (AMD).vcxproj", "{C5122D8B-DEC8-458F-9342-3A4AC3152BEF}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Sputnik", "Sputnik\Sputnik.vcxproj", "{540D433F-C2DF-49A6-895C-F5C74B014777}"
+	ProjectSection(ProjectDependencies) = postProject
+		{223D1FDE-331E-4028-9083-1673A5161C99} = {223D1FDE-331E-4028-9083-1673A5161C99}
+		{C5122D8B-DEC8-458F-9342-3A4AC3152BEF} = {C5122D8B-DEC8-458F-9342-3A4AC3152BEF}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libsputnik", "libsputnik\libvoyager.vcxproj", "{F468E79E-CC93-4A7F-844E-984117B5B08B}"
 EndProject

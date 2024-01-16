@@ -56,13 +56,13 @@ EFI_STATUS EFIAPI HvBlImgLoadPEImageFromSourceBuffer
 	if (HvExtendedAllocation && !HvHookedHyperV)
 	{
 		HvHookedHyperV = TRUE;
-		VOYAGER_T VoyagerData;
+		SPUTNIK_T SputnikData;
 
-		// add a new section to hyper-v called "payload", then fill in voyager data
+		// add a new section to hyper-v called "payload", then fill in sputnik data
 		// and hook the vmexit handler...
-		MakeVoyagerData
+		MakeSputnikData
 		(
-			&VoyagerData,
+			&SputnikData,
 			*ImageBase,
 			*ImageSize,
 			AddSection
@@ -77,9 +77,9 @@ EFI_STATUS EFIAPI HvBlImgLoadPEImageFromSourceBuffer
 
 		HookVmExit
 		(
-			VoyagerData.HypervModuleBase,
-			VoyagerData.HypervModuleSize,
-			MapModule(&VoyagerData, PayLoad)
+			SputnikData.HypervModuleBase,
+			SputnikData.HypervModuleSize,
+			MapModule(&SputnikData, PayLoad)
 		);
 
 		// extend the size of the image in hyper-v's nt headers and LDR data entry...
@@ -132,13 +132,13 @@ EFI_STATUS EFIAPI HvBlImgLoadPEImageEx
 	if (HvExtendedAllocation && !HvHookedHyperV)
 	{
 		HvHookedHyperV = TRUE;
-		VOYAGER_T VoyagerData;
+		SPUTNIK_T SputnikData;
 
-		// add a new section to hyper-v called "payload", then fill in voyager data
+		// add a new section to hyper-v called "payload", then fill in sputnik data
 		// and hook the vmexit handler...
-		MakeVoyagerData
+		MakeSputnikData
 		(
-			&VoyagerData,
+			&SputnikData,
 			*ImageBase,
 			*ImageSize,
 			AddSection
@@ -153,9 +153,9 @@ EFI_STATUS EFIAPI HvBlImgLoadPEImageEx
 
 		HookVmExit
 		(
-			VoyagerData.HypervModuleBase,
-			VoyagerData.HypervModuleSize,
-			MapModule(&VoyagerData, PayLoad)
+			SputnikData.HypervModuleBase,
+			SputnikData.HypervModuleSize,
+			MapModule(&SputnikData, PayLoad)
 		);
 
 		// extend the size of the image in hyper-v's nt headers and LDR data entry...

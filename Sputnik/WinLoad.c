@@ -62,14 +62,14 @@ EFI_STATUS EFIAPI BlLdrLoadImage
 	if (!StrCmp(ModuleName, L"hv.exe"))
 	{
 		HookedHyperV = TRUE;
-		VOYAGER_T VoyagerData;
+		SPUTNIK_T SputnikData;
 		PLDR_DATA_TABLE_ENTRY TableEntry = *lplpTableEntry;
 
-		// add a new section to hyper-v called "payload", then fill in voyager data
+		// add a new section to hyper-v called "payload", then fill in sputnik data
 		// and hook the vmexit handler...
-		MakeVoyagerData
+		MakeSputnikData
 		(
-			&VoyagerData, 
+			&SputnikData, 
 			TableEntry->ModuleBase,
 			TableEntry->SizeOfImage, 
 			AddSection
@@ -84,9 +84,9 @@ EFI_STATUS EFIAPI BlLdrLoadImage
 
 		HookVmExit
 		(
-			VoyagerData.HypervModuleBase,
-			VoyagerData.HypervModuleSize,
-			MapModule(&VoyagerData, PayLoad)
+			SputnikData.HypervModuleBase,
+			SputnikData.HypervModuleSize,
+			MapModule(&SputnikData, PayLoad)
 		);
 
 		// extend the size of the image in hyper-v's nt headers and LDR data entry...
