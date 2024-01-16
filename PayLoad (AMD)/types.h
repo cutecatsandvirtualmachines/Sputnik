@@ -18,10 +18,6 @@
 #define DBG_PRINT(arg) \
 	__outbytestring(PORT_NUM_3, (unsigned char*)arg, sizeof arg);
 
-#define offset_vmcb_base 0x103B0
-#define offset_vmcb_link 0x198
-#define offset_vmcb 0xE80
-
 #define VMEXIT_CR0_READ             0x0000
 #define VMEXIT_CR1_READ             0x0001
 #define VMEXIT_CR2_READ             0x0002
@@ -381,15 +377,15 @@ namespace svm
 	// and vmsave instruction... this means I had to hunt down the damn
 	// VMCB location... this is the pointer chain to the VMCB...
 	//
-	// TODO: could sig scan for this in Sputnik...
 	__forceinline auto get_vmcb() -> pvmcb
 	{
 		return *reinterpret_cast<svm::pvmcb*>(
 			*reinterpret_cast<u64*>(
 				*reinterpret_cast<u64*>(
-					__readgsqword(0) + offset_vmcb_base)
-						+ offset_vmcb_link) + offset_vmcb);
+					__readgsqword(0) + sputnik_context.vmcb_base)
+				+ sputnik_context.vmcb_link) + sputnik_context.vmcb_off);
 	}
+
 
 	enum class vmexit_command_t
 	{
@@ -455,6 +451,9 @@ namespace svm
 		u64 hyperv_module_size;
 		u64 record_base;
 		u64 record_size;
+		u32 vmcb_base;
+		u32 vmcb_link;
+		u32 vmcb_off;
 	} SPUTNIK_T, * pSPUTNIK_T;
 	#pragma pack(pop)
 

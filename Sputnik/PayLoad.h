@@ -27,6 +27,9 @@ typedef struct _SPUTNIK_T
 	UINT64 HypervModuleSize;
 	UINT64 ModuleBase;
 	UINT64 ModuleSize;
+	UINT32 VmcbBase;
+	UINT32 VmcbLink;
+	UINT32 VmcbOff;
 } SPUTNIK_T, *PSPUTNIK_T;
 #pragma pack(pop)
 

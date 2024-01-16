@@ -135,6 +135,15 @@ VOID MakeSputnikData
 		UINT64 VmExitHandlerCallRip = (UINT64)VmExitHandlerCall + 5; // + 5 bytes because "call vmexit_c_handler" is 5 bytes
 		UINT64 VmExitHandlerFunc = VmExitHandlerCallRip + *(INT32*)((UINT64)VmExitHandlerCall + 1); // + 1 to skip E8 (call) and read 4 bytes (RVA)
 		SputnikData->VmExitHandlerRva = ((UINT64)PayLoadEntry(PayLoadBase)) - VmExitHandlerFunc;
+
+		UINT64 VmcbOffsetsAddr = FindPattern(HypervAlloc, HypervAllocSize, "\x65\x48\x8B\x04\x25\x00\x00\x00\x00\x48\x8B\x88\x00\x00\x00\x00\x48\x8B\x81\x00\x00\x00\x00\x48\x8B\x88", "xxxxx????xxx????xxx????xxx");
+
+		VmcbOffsetsAddr += 5;
+		SputnikData->VmcbBase = *(UINT32*)VmcbOffsetsAddr;
+		VmcbOffsetsAddr += 3 + 4;
+		SputnikData->VmcbLink = *(UINT32*)VmcbOffsetsAddr;
+		VmcbOffsetsAddr += 3 + 4;
+		SputnikData->VmcbOff = *(UINT32*)VmcbOffsetsAddr;
 	}
 }
 
