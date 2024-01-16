@@ -140,7 +140,6 @@ EFI_STATUS EFIAPI BlImgLoadPEImageEx
 
 	if (StrStr(ImagePath, L"hvloader.efi"))
 	{
-#if WINVER == 1703
 		VOID* LoadImage =
 			FindPattern(
 				*ImageBasePtr,
@@ -148,17 +147,6 @@ EFI_STATUS EFIAPI BlImgLoadPEImageEx
 				HV_LOAD_PE_IMG_FROM_BUFFER_SIG,
 				HV_LOAD_PE_IMG_FROM_BUFFER_MASK
 			);
-
-#elif WINVER <= 1607 
-		VOID* LoadImage =
-			FindPattern(
-				*ImageBasePtr,
-				*ImageSize,
-				HV_LOAD_PE_IMG_SIG,
-				HV_LOAD_PE_IMG_MASK
-			);
-
-#endif
 		VOID* AllocImage =
 			FindPattern(
 				*ImageBasePtr,
@@ -167,11 +155,7 @@ EFI_STATUS EFIAPI BlImgLoadPEImageEx
 				HV_ALLOCATE_IMAGE_BUFFER_MASK
 			);
 
-#if WINVER == 1703
 		MakeInlineHook(&HvLoadImageBufferHook, RESOLVE_RVA(LoadImage, 5, 1), &HvBlImgLoadPEImageFromSourceBuffer, TRUE);
-#elif WINVER <= 1607 
-		MakeInlineHook(&HvLoadImageHook, RESOLVE_RVA(LoadImage, 10, 6), &HvBlImgLoadPEImageEx, TRUE);
-	#endif
 
 		MakeInlineHook(&HvLoadAllocImageHook, RESOLVE_RVA(AllocImage, 5, 1), &HvBlImgAllocateImageBuffer, TRUE);
 		InstalledHvLoaderHook = TRUE;

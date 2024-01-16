@@ -18,47 +18,9 @@
 #define DBG_PRINT(arg) \
 	__outbytestring(PORT_NUM_3, (unsigned char*)arg, sizeof arg);
 
-#if WINVER == 2004
 #define offset_vmcb_base 0x103B0
 #define offset_vmcb_link 0x198
 #define offset_vmcb 0xE80
-#elif WINVER == 1909
-#define offset_vmcb_base 0x83B0
-#define offset_vmcb_link 0x190
-#define offset_vmcb 0xD00
-#elif WINVER == 1903
-#define offset_vmcb_base 0x83B0
-#define offset_vmcb_link 0x190
-#define offset_vmcb 0xD00
-#elif WINVER == 1809
-#define offset_vmcb_base 0x83B0
-#define offset_vmcb_link 0x198
-#define offset_vmcb 0xD00
-#elif WINVER == 1803
-#define offset_vmcb_base 0x82F0
-#define offset_vmcb_link 0x168
-#define offset_vmcb 0xCC0
-#elif WINVER == 1709
-#define offset_vmcb_base 0x82F0
-#define offset_vmcb_link 0x88
-#define offset_vmcb 0xC80
-#elif WINVER == 1703
-#define offset_vmcb_base 0x82F0
-#define offset_vmcb_link 0x80
-#define offset_vmcb 0xBC0
-#elif WINVER == 1607
-#define offset_vmcb_base 0x82F0
-#define offset_vmcb_link 0x90
-#define offset_vmcb 0xBC0
-#elif WINVER == 1511
-#define offset_vmcb_base 0x82F0
-#define offset_vmcb_link 0x90
-#define offset_vmcb 0xC40
-#elif WINVER == 1507
-#define offset_vmcb_base 0x82F0
-#define offset_vmcb_link 0x88
-#define offset_vmcb 0xBC0
-#endif
 
 #define VMEXIT_CR0_READ             0x0000
 #define VMEXIT_CR1_READ             0x0001

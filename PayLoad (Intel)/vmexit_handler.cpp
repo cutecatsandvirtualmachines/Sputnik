@@ -1,17 +1,8 @@
 #include "vmexit.h"
 
-#if WINVER > 1803
 void vmexit_handler(pcontext_t* context, void* unknown)
-#else
-void vmexit_handler(pcontext_t context, void* unknown)
-#endif
 {
-
-#if WINVER > 1803
 	pcontext_t guest_registers = *context;
-#else
-	pcontext_t guest_registers = context;
-#endif
 
 	size_t vmexit_reason;
 	__vmx_vmread(VMCS_EXIT_REASON, &vmexit_reason);

@@ -103,11 +103,7 @@ typedef struct _context_t
 	u128 xmm5;
 } context_t, *pcontext_t;
 
-#if WINVER > 1803
 using vmexit_handler_t = void (__fastcall*)(pcontext_t* context, void* unknown);
-#else
-using vmexit_handler_t = void(__fastcall*)(pcontext_t context, void* unknown);
-#endif
 
 #pragma pack(push, 1)
 typedef struct _SPUTNIK_T
