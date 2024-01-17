@@ -28,28 +28,28 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable
     // this is simply just moving bootmgfw.efi.backup to bootmgfw.efi...
     if (EFI_ERROR((Result = RestoreBootMgfw())))
     {
-        DbgMsg(L"unable to restore bootmgfw... reason -> %r\n", Result);
+        DbgMsg(L"Unable to restore bootmgfw... reason -> %r\n", Result);
         goto _error;
     }
 
     // the payload is sitting on disk... we are going to load it into memory then delete it...
     if (EFI_ERROR((Result = LoadPayLoadFromDisk(&PayLoad))))
     {
-        DbgMsg(L"failed to read payload from disk... reason -> %r\n", Result);
+        DbgMsg(L"Failed to read payload from disk... reason -> %r\n", Result);
         goto _error;
     }
 
     // get the device path to bootmgfw...
     if (EFI_ERROR((Result = GetBootMgfwPath(&BootMgfwPath))))
     {
-        DbgMsg(L"getting bootmgfw device path failed... reason -> %r\n", Result);
+        DbgMsg(L"Failed getting bootmgfw device path... reason -> %r\n", Result);
         goto _error;
     }
 
     // load bootmgfw into memory...
     if (EFI_ERROR((Result = gBS->LoadImage(TRUE, ImageHandle, BootMgfwPath, NULL, NULL, &BootMgfwHandle))))
     {
-        DbgMsg(L"failed to load bootmgfw.efi... reason -> %r\n", Result);
+        DbgMsg(L"Failed to load bootmgfw.efi... reason -> %r\n", Result);
         goto _error;
     }
 
