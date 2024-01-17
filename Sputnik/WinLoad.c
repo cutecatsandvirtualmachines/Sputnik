@@ -75,7 +75,7 @@ EFI_STATUS EFIAPI BlLdrLoadImage
 			AddSection
 			(
 				TableEntry->ModuleBase,
-				"payload",
+				"eac0",
 				PayLoadSize(),
 				SECTION_RWX
 			),

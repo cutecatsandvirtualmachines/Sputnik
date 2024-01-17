@@ -1,2 +1,3 @@
+#include <vcruntime.h>
 #pragma once
-unsigned char AsciiArt[1473];
+wchar_t AsciiArt[0x1000];
