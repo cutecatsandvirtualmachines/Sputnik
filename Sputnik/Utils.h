@@ -1,6 +1,5 @@
 #pragma once
-#include <Globals.h>
-#include <IO.h>
+#include <SELib.h>
 
 #define PORT_NUM 0x2F8
 #define BL_MEMORY_ATTRIBUTE_RWX 0x424000

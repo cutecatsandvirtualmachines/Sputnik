@@ -66,7 +66,7 @@ EFI_STATUS EFIAPI RestoreBootMgfw(VOID)
 			{
 				if (Result == EFI_BUFFER_TOO_SMALL)
 				{
-					gBS->AllocatePool(EfiBootServicesData, FileInfoSize, (VOID**)&FileInfoPtr);
+					FileInfoPtr = (EFI_FILE_INFO*)memory::eMalloc(FileInfoSize);
 					if (EFI_ERROR(Result = BootMgfwFile->GetInfo(BootMgfwFile, &gEfiFileInfoGuid, &FileInfoSize, FileInfoPtr)))
 					{
 						DbgMsg(L"get backup file information failed... reason -> %r\n", Result);
@@ -79,10 +79,13 @@ EFI_STATUS EFIAPI RestoreBootMgfw(VOID)
 					return Result;
 				}
 			}
+			else {
+				DbgMsg(L"Somehow got file info(??) -> %r\n", Result);
+				return Result;
+			}
 
-			VOID* BootMgfwBuffer = NULL;
 			UINTN BootMgfwSize = FileInfoPtr->FileSize;
-			gBS->AllocatePool(EfiBootServicesData, FileInfoPtr->FileSize, &BootMgfwBuffer);
+			VOID* BootMgfwBuffer = memory::eMalloc(BootMgfwSize);
 
 			// read the backup file into an allocated pool...
 			if (EFI_ERROR((Result = BootMgfwFile->Read(BootMgfwFile, &BootMgfwSize, BootMgfwBuffer))))
@@ -115,8 +118,8 @@ EFI_STATUS EFIAPI RestoreBootMgfw(VOID)
 			}
 
 			BootMgfwFile->Close(BootMgfwFile);
-			gBS->FreePool(FileInfoPtr);
-			gBS->FreePool(BootMgfwBuffer);
+			memory::eFree(FileInfoPtr);
+			memory::eFree(BootMgfwBuffer);
 			return EFI_SUCCESS;
 		}
 

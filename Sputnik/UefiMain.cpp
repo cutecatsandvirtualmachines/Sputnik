@@ -29,40 +29,35 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable
     if (EFI_ERROR((Result = RestoreBootMgfw())))
     {
         DbgMsg(L"unable to restore bootmgfw... reason -> %r\n", Result);
-        gBS->Stall(SEC_TO_MS(5));
-        return Result;
+        goto _error;
     }
 
     // the payload is sitting on disk... we are going to load it into memory then delete it...
     if (EFI_ERROR((Result = LoadPayLoadFromDisk(&PayLoad))))
     {
         DbgMsg(L"failed to read payload from disk... reason -> %r\n", Result);
-        gBS->Stall(SEC_TO_MS(5));
-        return Result;
+        goto _error;
     }
 
     // get the device path to bootmgfw...
     if (EFI_ERROR((Result = GetBootMgfwPath(&BootMgfwPath))))
     {
         DbgMsg(L"getting bootmgfw device path failed... reason -> %r\n", Result);
-        gBS->Stall(SEC_TO_MS(5));
-        return Result;
+        goto _error;
     }
 
     // load bootmgfw into memory...
     if (EFI_ERROR((Result = gBS->LoadImage(TRUE, ImageHandle, BootMgfwPath, NULL, NULL, &BootMgfwHandle))))
     {
         DbgMsg(L"failed to load bootmgfw.efi... reason -> %r\n", Result);
-        gBS->Stall(SEC_TO_MS(5));
-        return EFI_ABORTED;
+        goto _error;
     }
 
     // install hooks on bootmgfw...
     if (EFI_ERROR((Result = InstallBootMgfwHooks(BootMgfwHandle))))
     {
         DbgMsg(L"Failed to install bootmgfw hooks... reason -> %r\n", Result);
-        gBS->Stall(SEC_TO_MS(5));
-        return Result;
+        goto _error;
     }
 
     // wait 5 seconds then call the entry point of bootmgfw...
@@ -70,8 +65,17 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable
     if (EFI_ERROR((Result = gBS->StartImage(BootMgfwHandle, NULL, NULL))))
     {
         DbgMsg(L"Failed to start bootmgfw.efi... reason -> %r\n", Result);
-        gBS->Stall(SEC_TO_MS(5));
-        return EFI_ABORTED;
+        Result = EFI_ABORTED;
+        goto _error;
     }
+
+    memory::memset(PayLoad, 0, 0);
+    memory::eFree(PayLoad);
     return EFI_SUCCESS;
+
+_error:
+    memory::memset(PayLoad, 0, 0);
+    memory::eFree(PayLoad);
+    gBS->Stall(SEC_TO_MS(5));
+    return Result;
 }
