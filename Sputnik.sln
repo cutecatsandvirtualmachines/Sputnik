@@ -10,11 +10,18 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PayLoad (Intel)", "PayLoad (Intel)\PayLoad (Intel).vcxproj", "{223D1FDE-331E-4028-9083-1673A5161C99}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Sputnik", "Sputnik\Sputnik.vcxproj", "{540D433F-C2DF-49A6-895C-F5C74B014777}"
+	ProjectSection(ProjectDependencies) = postProject
+		{223D1FDE-331E-4028-9083-1673A5161C99} = {223D1FDE-331E-4028-9083-1673A5161C99}
+		{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E} = {AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}
+		{C5122D8B-DEC8-458F-9342-3A4AC3152BEF} = {C5122D8B-DEC8-458F-9342-3A4AC3152BEF}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestLoader", "TestLoader\TestLoader.vcxproj", "{48E25843-F62D-4C37-AED4-BD486CA01150}"
 	ProjectSection(ProjectDependencies) = postProject
 		{540D433F-C2DF-49A6-895C-F5C74B014777} = {540D433F-C2DF-49A6-895C-F5C74B014777}
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SELib", "SELib\SELib\SELib.vcxproj", "{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -64,6 +71,14 @@ Global
 		{48E25843-F62D-4C37-AED4-BD486CA01150}.Release|x64.Build.0 = Release|x64
 		{48E25843-F62D-4C37-AED4-BD486CA01150}.Release|x86.ActiveCfg = Release|Win32
 		{48E25843-F62D-4C37-AED4-BD486CA01150}.Release|x86.Build.0 = Release|Win32
+		{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}.Debug|x64.ActiveCfg = Release|x64
+		{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}.Debug|x64.Build.0 = Release|x64
+		{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}.Debug|x86.ActiveCfg = Release|x64
+		{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}.Debug|x86.Build.0 = Release|x64
+		{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}.Release|x64.ActiveCfg = Release|x64
+		{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}.Release|x64.Build.0 = Release|x64
+		{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}.Release|x86.ActiveCfg = Release|x64
+		{AA262B0C-F0ED-4666-BE1F-D843AD6F8C7E}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

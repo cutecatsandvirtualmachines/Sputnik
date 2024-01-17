@@ -178,60 +178,7 @@ auto mm::translate_guest_physical(guest_phys_t phys_addr, map_type_t map_type) -
 
 auto mm::init() -> svm::vmxroot_error_t
 {
-	const auto pdpt_phys = 
-		translate(reinterpret_cast<u64>(pdpt));
-
-	const auto pd_phys = 
-		translate(reinterpret_cast<u64>(pd));
-
-	const auto pt_phys = 
-		translate(reinterpret_cast<u64>(pt));
-
-	if (!pdpt_phys || !pd_phys || !pt_phys)
-		return svm::vmxroot_error_t::invalid_host_virtual;
-
-	// setup mapping page table entries...
-	{
-		hyperv_pml4[MAPPING_PML4_IDX].present = true;
-		hyperv_pml4[MAPPING_PML4_IDX].pfn = pdpt_phys >> 12;
-		hyperv_pml4[MAPPING_PML4_IDX].user_supervisor = false;
-		hyperv_pml4[MAPPING_PML4_IDX].writeable = true;
-
-		pdpt[511].present = true;
-		pdpt[511].pfn = pd_phys >> 12;
-		pdpt[511].user_supervisor = false;
-		pdpt[511].rw = true;
-
-		pd[511].present = true;
-		pd[511].pfn = pt_phys >> 12;
-		pd[511].user_supervisor = false;
-		pd[511].rw = true;
-	}
-
-	// each core will have its own page it can use to map
-	// physical memory into virtual memory :^)
-	for (auto idx = 0u; idx < 512; ++idx)
-	{
-		pt[idx].present = true;
-		pt[idx].user_supervisor = false;
-		pt[idx].rw = true;
-	}
-
-	const auto mapped_pml4 =
-		reinterpret_cast<ppml4e>(
-			mm::map_page(__readcr3()));
-
-	// check to make sure translate works...
-	if (translate((u64)mapped_pml4) != __readcr3())
-		return svm::vmxroot_error_t::vmxroot_translate_failure;
-
-	// check to make sure the self ref pml4e is valid...
-	if (mapped_pml4[SELF_REF_PML4_IDX].pfn != __readcr3() >> 12)
-		return svm::vmxroot_error_t::invalid_self_ref_pml4e;
-
-	// check to make sure the mapping pml4e is valid...
-	if (mapped_pml4[MAPPING_PML4_IDX].pfn != pdpt_phys >> 12)
-		return svm::vmxroot_error_t::invalid_mapping_pml4e;
+	
 
 	return svm::vmxroot_error_t::error_success;
 }

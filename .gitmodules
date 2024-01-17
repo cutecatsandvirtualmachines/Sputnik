@@ -1,0 +1,3 @@
+[submodule "SELib"]
+	path = SELib
+	url = https://github.com/BomboBombone/SELib

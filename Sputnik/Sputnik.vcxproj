@@ -34,7 +34,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir)edk2\CryptoPkg\Include;$(ProjectDir)edk2\ShellPkg\Include;$(ProjectDir)edk2\MdePkg\Include\X64;$(ProjectDir)edk2\MdePkg\Include;$(ProjectDir)edk2\StdLib\Include;$(ProjectDir)</IncludePath>
+    <IncludePath>$(ProjectDir)edk2\CryptoPkg\Include;$(ProjectDir)edk2\ShellPkg\Include;$(ProjectDir)edk2\MdePkg\Include\X64;$(ProjectDir)edk2\MdePkg\Include\AArch64;$(ProjectDir)edk2\MdePkg\Include;$(ProjectDir)edk2\StdLib\Include;$(ProjectDir)</IncludePath>
     <LibraryPath>$(ProjectDir)edk2</LibraryPath>
     <GenerateManifest>false</GenerateManifest>
     <TargetExt>.efi</TargetExt>
@@ -61,13 +61,14 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention>false</DataExecutionPrevention>
-      <AdditionalDependencies>UefiHiiLib.lib;UefiHiiServicesLib.lib;UefiSortLib.lib;UefiShellLib.lib;GlueLib.lib;BaseLib.lib;BaseDebugPrintErrorLevelLib.lib;BasePrintLib.lib;UefiLib.lib;UefiBootServicesTableLib.lib;UefiRuntimeServicesTableLib.lib;UefiDevicePathLibDevicePathProtocol.lib;UefiDebugLibConOut.lib;UefiMemoryLib.lib;UefiMemoryAllocationLib.lib;BaseSynchronizationLib.lib;UefiFileHandleLib.lib;UefiApplicationEntryPoint.lib</AdditionalDependencies>
+      <AdditionalDependencies>UefiHiiLib.lib;UefiHiiServicesLib.lib;UefiSortLib.lib;UefiShellLib.lib;GlueLib.lib;BaseLib.lib;BaseDebugPrintErrorLevelLib.lib;BasePrintLib.lib;UefiLib.lib;UefiBootServicesTableLib.lib;UefiRuntimeServicesTableLib.lib;UefiDevicePathLibDevicePathProtocol.lib;UefiDebugLibConOut.lib;UefiMemoryLib.lib;UefiMemoryAllocationLib.lib;BaseSynchronizationLib.lib;UefiFileHandleLib.lib;UefiApplicationEntryPoint.lib;SELib.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EntryPointSymbol>EfiMain</EntryPointSymbol>
       <GenerateMapFile>true</GenerateMapFile>
       <MapFileName>
       </MapFileName>
       <MapExports>true</MapExports>
+      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
     </Link>
     <ProjectReference>
       <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
