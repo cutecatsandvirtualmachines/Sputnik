@@ -1,20 +1,21 @@
 #include "Hv.h"
 
 PSPUTNIK_T PayLoadDataPtr = NULL;
-VOID* MapModule(PSPUTNIK_T SputnikData, UINT8* ImageBase)
+VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
 {
 	if (!SputnikData || !ImageBase)
 		return NULL;
 
-	EFI_IMAGE_DOS_HEADER* dosHeaders = (EFI_IMAGE_DOS_HEADER*)ImageBase;
+	UINT8* base = (UINT8*)ImageBase;
+	EFI_IMAGE_DOS_HEADER* dosHeaders = (EFI_IMAGE_DOS_HEADER*)base;
 	if (dosHeaders->e_magic != EFI_IMAGE_DOS_SIGNATURE)
 		return NULL;
 
-	EFI_IMAGE_NT_HEADERS64* ntHeaders = (EFI_IMAGE_NT_HEADERS64*)(ImageBase + dosHeaders->e_lfanew);
+	EFI_IMAGE_NT_HEADERS64* ntHeaders = (EFI_IMAGE_NT_HEADERS64*)(base + dosHeaders->e_lfanew);
 	if (ntHeaders->Signature != EFI_IMAGE_NT_SIGNATURE)
 		return NULL;
 
-	MemCopy(SputnikData->ModuleBase, ImageBase, ntHeaders->OptionalHeader.SizeOfHeaders);
+	MemCopy((UINT8*)SputnikData->ModuleBase, base, ntHeaders->OptionalHeader.SizeOfHeaders);
 	EFI_IMAGE_SECTION_HEADER* sections = (EFI_IMAGE_SECTION_HEADER*)((UINT8*)&ntHeaders->OptionalHeader + ntHeaders->FileHeader.SizeOfOptionalHeader);
 	for (UINT32 i = 0; i < ntHeaders->FileHeader.NumberOfSections; ++i) 
 	{
@@ -23,8 +24,8 @@ VOID* MapModule(PSPUTNIK_T SputnikData, UINT8* ImageBase)
 		{
 			MemCopy
 			(
-				SputnikData->ModuleBase + section->VirtualAddress,
-				ImageBase + section->PointerToRawData,
+				(UINT8*)SputnikData->ModuleBase + section->VirtualAddress,
+				base + section->PointerToRawData,
 				section->SizeOfRawData
 			);
 		}
@@ -39,7 +40,7 @@ VOID* MapModule(PSPUTNIK_T SputnikData, UINT8* ImageBase)
 
 	for (UINT16 i = 0; i < ExportDir->AddressOfFunctions; i++)
 	{
-		if (AsciiStrStr(SputnikData->ModuleBase + Name[i], "sputnik_context"))
+		if (AsciiStrStr((CHAR8*)SputnikData->ModuleBase + Name[i], "sputnik_context"))
 		{
 			*(SPUTNIK_T*)(SputnikData->ModuleBase + Address[Ordinal[i]]) = *SputnikData;
 			break; // DO NOT REMOVE? #Stink Code 2020...
@@ -55,7 +56,7 @@ VOID* MapModule(PSPUTNIK_T SputnikData, UINT8* ImageBase)
 		{
 			UINT32 relocCount = (reloc->SizeOfBlock - sizeof(EFI_IMAGE_BASE_RELOCATION)) / sizeof(UINT16);
 			UINT16* relocData = (UINT16*)((UINT8*)reloc + sizeof(EFI_IMAGE_BASE_RELOCATION));
-			UINT8* relocBase = SputnikData->ModuleBase + reloc->VirtualAddress;
+			UINT8* relocBase = (UINT8*)SputnikData->ModuleBase + reloc->VirtualAddress;
 
 			for (UINT32 i = 0; i < relocCount; ++i, ++relocData) 
 			{
@@ -83,7 +84,7 @@ VOID* MapModule(PSPUTNIK_T SputnikData, UINT8* ImageBase)
 		}
 	}
 
-	return SputnikData->ModuleBase + ntHeaders->OptionalHeader.AddressOfEntryPoint;
+	return (VOID*)(SputnikData->ModuleBase + ntHeaders->OptionalHeader.AddressOfEntryPoint);
 }
 
 VOID MakeSputnikData
@@ -95,17 +96,17 @@ VOID MakeSputnikData
 	UINT64 PayLoadSize
 )
 {
-	SputnikData->HypervModuleBase = HypervAlloc;
+	SputnikData->HypervModuleBase = (UINT64)HypervAlloc;
 	SputnikData->HypervModuleSize = HypervAllocSize;
-	SputnikData->ModuleBase = PayLoadBase;
+	SputnikData->ModuleBase = (UINT64)PayLoadBase;
 	SputnikData->ModuleSize = PayLoadSize;
 
 	VOID* VmExitHandler =
 		FindPattern(
 			HypervAlloc,
 			HypervAllocSize,
-			INTEL_VMEXIT_HANDLER_SIG,
-			INTEL_VMEXIT_HANDLER_MASK
+			(VOID*)INTEL_VMEXIT_HANDLER_SIG,
+			(VOID*)INTEL_VMEXIT_HANDLER_MASK
 		);
 
 	if (VmExitHandler)
@@ -128,15 +129,15 @@ VOID MakeSputnikData
 			FindPattern(
 				HypervAlloc,
 				HypervAllocSize,
-				AMD_VMEXIT_HANDLER_SIG,
-				AMD_VMEXIT_HANDLER_MASK
+				(VOID*)AMD_VMEXIT_HANDLER_SIG,
+				(VOID*)AMD_VMEXIT_HANDLER_MASK
 			);
 
 		UINT64 VmExitHandlerCallRip = (UINT64)VmExitHandlerCall + 5; // + 5 bytes because "call vmexit_c_handler" is 5 bytes
 		UINT64 VmExitHandlerFunc = VmExitHandlerCallRip + *(INT32*)((UINT64)VmExitHandlerCall + 1); // + 1 to skip E8 (call) and read 4 bytes (RVA)
 		SputnikData->VmExitHandlerRva = ((UINT64)PayLoadEntry(PayLoadBase)) - VmExitHandlerFunc;
 
-		UINT64 VmcbOffsetsAddr = FindPattern(HypervAlloc, HypervAllocSize, "\x65\x48\x8B\x04\x25\x00\x00\x00\x00\x48\x8B\x88\x00\x00\x00\x00\x48\x8B\x81\x00\x00\x00\x00\x48\x8B\x88", "xxxxx????xxx????xxx????xxx");
+		UINT64 VmcbOffsetsAddr = (UINT64)FindPattern(HypervAlloc, HypervAllocSize, (VOID*)"\x65\x48\x8B\x04\x25\x00\x00\x00\x00\x48\x8B\x88\x00\x00\x00\x00\x48\x8B\x81\x00\x00\x00\x00\x48\x8B\x88", (VOID*)"xxxxx????xxx????xxx????xxx");
 
 		VmcbOffsetsAddr += 5;
 		SputnikData->VmcbBase = *(UINT32*)VmcbOffsetsAddr;
@@ -152,9 +153,9 @@ VOID* HookVmExit(VOID* HypervBase, VOID* HypervSize, VOID* VmExitHook)
 	VOID* VmExitHandler =
 		FindPattern(
 			HypervBase,
-			HypervSize,
-			INTEL_VMEXIT_HANDLER_SIG,
-			INTEL_VMEXIT_HANDLER_MASK
+			(UINT64)HypervSize,
+			(VOID*)INTEL_VMEXIT_HANDLER_SIG,
+			(VOID*)INTEL_VMEXIT_HANDLER_MASK
 		);
 
 	if (VmExitHandler)
@@ -171,22 +172,22 @@ VOID* HookVmExit(VOID* HypervBase, VOID* HypervSize, VOID* VmExitHook)
 		UINT64 VmExitFunction = VmExitHandlerCallRip + *(INT32*)((UINT64)(VmExitHandlerCall + 1)); // + 1 to skip E8 (call) and read 4 bytes (RVA)
 		INT32 NewVmExitRVA = ((INT64)VmExitHook) - VmExitHandlerCallRip;
 		*(INT32*)((UINT64)(VmExitHandlerCall + 1)) = NewVmExitRVA;
-		return VmExitFunction;
+		return (VOID*)VmExitFunction;
 	}
 	else // else AMD
 	{
 		VOID* VmExitHandlerCall =
 			FindPattern(
 				HypervBase,
-				HypervSize,
-				AMD_VMEXIT_HANDLER_SIG,
-				AMD_VMEXIT_HANDLER_MASK
+				(UINT64)HypervSize,
+				(VOID*)AMD_VMEXIT_HANDLER_SIG,
+				(VOID*)AMD_VMEXIT_HANDLER_MASK
 			);
 
 		UINT64 VmExitHandlerCallRip = ((UINT64)VmExitHandlerCall) + 5; // + 5 bytes to next instructions address...
 		UINT64 VmExitHandlerFunction = VmExitHandlerCallRip + *(INT32*)(((UINT64)VmExitHandlerCall) + 1); // + 1 to skip E8 (call) and read 4 bytes (RVA)
 		INT32 NewVmExitHandlerRVA = ((INT64)VmExitHook) - VmExitHandlerCallRip;
 		*(INT32*)((UINT64)VmExitHandlerCall + 1) = NewVmExitHandlerRVA;
-		return VmExitHandlerFunction;
+		return (VOID*)VmExitHandlerFunction;
 	}
 }

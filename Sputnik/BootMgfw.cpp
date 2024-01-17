@@ -13,7 +13,7 @@ EFI_STATUS EFIAPI RestoreBootMgfw(VOID)
 
 	if (EFI_ERROR((Result = gBS->LocateHandleBuffer(ByProtocol, &gEfiSimpleFileSystemProtocolGuid, NULL, &HandleCount, &Handles))))
 	{
-		Print(L"error getting file system handles -> 0x%p\n", Result);
+		DbgMsg(L"error getting file system handles -> 0x%p\n", Result);
 		return Result;
 	}
 
@@ -21,40 +21,40 @@ EFI_STATUS EFIAPI RestoreBootMgfw(VOID)
 	{
 		if (EFI_ERROR((Result = gBS->OpenProtocol(Handles[Idx], &gEfiSimpleFileSystemProtocolGuid, (VOID**)&FileSystem, gImageHandle, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL))))
 		{
-			Print(L"error opening protocol -> 0x%p\n", Result);
+			DbgMsg(L"error opening protocol -> 0x%p\n", Result);
 			return Result;
 		}
 
 		if (EFI_ERROR((Result = FileSystem->OpenVolume(FileSystem, &VolumeHandle))))
 		{
-			Print(L"error opening file system -> 0x%p\n", Result);
+			DbgMsg(L"error opening file system -> 0x%p\n", Result);
 			return Result;
 		}
 
-		if (!EFI_ERROR((Result = VolumeHandle->Open(VolumeHandle, &BootMgfwHandle, WINDOWS_BOOTMGFW_PATH, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY))))
+		if (!EFI_ERROR((Result = VolumeHandle->Open(VolumeHandle, &BootMgfwHandle, (CHAR16*)WINDOWS_BOOTMGFW_PATH, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY))))
 		{
 			VolumeHandle->Close(VolumeHandle);
 			EFI_FILE_PROTOCOL* BootMgfwFile = NULL;
-			EFI_DEVICE_PATH* BootMgfwPathProtocol = FileDevicePath(Handles[Idx], WINDOWS_BOOTMGFW_PATH);
+			EFI_DEVICE_PATH* BootMgfwPathProtocol = FileDevicePath(Handles[Idx], (CHAR16*)WINDOWS_BOOTMGFW_PATH);
 
 			// open bootmgfw as read/write then delete it...
 			if (EFI_ERROR((Result = EfiOpenFileByDevicePath(&BootMgfwPathProtocol, &BootMgfwFile, EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, NULL))))
 			{
-				Print(L"error opening bootmgfw... reason -> %r\n", Result);
+				DbgMsg(L"error opening bootmgfw... reason -> %r\n", Result);
 				return Result;
 			}
 
 			if (EFI_ERROR((Result = BootMgfwFile->Delete(BootMgfwFile))))
 			{
-				Print(L"error deleting bootmgfw... reason -> %r\n", Result);
+				DbgMsg(L"error deleting bootmgfw... reason -> %r\n", Result);
 				return Result;
 			}
 
 			// open bootmgfw.efi.backup
-			BootMgfwPathProtocol = FileDevicePath(Handles[Idx], WINDOWS_BOOTMGFW_BACKUP_PATH);
+			BootMgfwPathProtocol = FileDevicePath(Handles[Idx], (CHAR16*)WINDOWS_BOOTMGFW_BACKUP_PATH);
 			if (EFI_ERROR((Result = EfiOpenFileByDevicePath(&BootMgfwPathProtocol, &BootMgfwFile, EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, NULL))))
 			{
-				Print(L"failed to open backup file... reason -> %r\n", Result);
+				DbgMsg(L"failed to open backup file... reason -> %r\n", Result);
 				return Result;
 			}
 
@@ -66,16 +66,16 @@ EFI_STATUS EFIAPI RestoreBootMgfw(VOID)
 			{
 				if (Result == EFI_BUFFER_TOO_SMALL)
 				{
-					gBS->AllocatePool(EfiBootServicesData, FileInfoSize, &FileInfoPtr);
+					gBS->AllocatePool(EfiBootServicesData, FileInfoSize, (VOID**)&FileInfoPtr);
 					if (EFI_ERROR(Result = BootMgfwFile->GetInfo(BootMgfwFile, &gEfiFileInfoGuid, &FileInfoSize, FileInfoPtr)))
 					{
-						Print(L"get backup file information failed... reason -> %r\n", Result);
+						DbgMsg(L"get backup file information failed... reason -> %r\n", Result);
 						return Result;
 					}
 				}
 				else
 				{
-					Print(L"Failed to get file information... reason -> %r\n", Result);
+					DbgMsg(L"Failed to get file information... reason -> %r\n", Result);
 					return Result;
 				}
 			}
@@ -87,22 +87,22 @@ EFI_STATUS EFIAPI RestoreBootMgfw(VOID)
 			// read the backup file into an allocated pool...
 			if (EFI_ERROR((Result = BootMgfwFile->Read(BootMgfwFile, &BootMgfwSize, BootMgfwBuffer))))
 			{
-				Print(L"Failed to read backup file into buffer... reason -> %r\n", Result);
+				DbgMsg(L"Failed to read backup file into buffer... reason -> %r\n", Result);
 				return Result;
 			}
 
 			// delete the backup file...
 			if (EFI_ERROR((Result = BootMgfwFile->Delete(BootMgfwFile))))
 			{
-				Print(L"unable to delete backup file... reason -> %r\n", Result);
+				DbgMsg(L"unable to delete backup file... reason -> %r\n", Result);
 				return Result;
 			}
 
 			// create a new bootmgfw file...
-			BootMgfwPathProtocol = FileDevicePath(Handles[Idx], WINDOWS_BOOTMGFW_PATH);
+			BootMgfwPathProtocol = FileDevicePath(Handles[Idx], (CHAR16*)WINDOWS_BOOTMGFW_PATH);
 			if (EFI_ERROR((Result = EfiOpenFileByDevicePath(&BootMgfwPathProtocol, &BootMgfwFile, EFI_FILE_MODE_CREATE | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, EFI_FILE_SYSTEM))))
 			{
-				Print(L"unable to create new bootmgfw on disk... reason -> %r\n", Result);
+				DbgMsg(L"unable to create new bootmgfw on disk... reason -> %r\n", Result);
 				return Result;
 			}
 
@@ -110,7 +110,7 @@ EFI_STATUS EFIAPI RestoreBootMgfw(VOID)
 			BootMgfwSize = FileInfoPtr->FileSize;
 			if (EFI_ERROR((Result = BootMgfwFile->Write(BootMgfwFile, &BootMgfwSize, BootMgfwBuffer))))
 			{
-				Print(L"unable to write to newly created bootmgfw.efi... reason -> %r\n", Result);
+				DbgMsg(L"unable to write to newly created bootmgfw.efi... reason -> %r\n", Result);
 				return Result;
 			}
 
@@ -122,7 +122,7 @@ EFI_STATUS EFIAPI RestoreBootMgfw(VOID)
 
 		if (EFI_ERROR((Result = gBS->CloseProtocol(Handles[Idx], &gEfiSimpleFileSystemProtocolGuid, gImageHandle, NULL))))
 		{
-			Print(L"error closing protocol -> 0x%p\n", Result);
+			DbgMsg(L"error closing protocol -> 0x%p\n", Result);
 			return Result;
 		}
 	}
@@ -142,7 +142,7 @@ EFI_STATUS EFIAPI GetBootMgfwPath(EFI_DEVICE_PATH** BootMgfwDevicePath)
 
 	if (EFI_ERROR((Result = gBS->LocateHandleBuffer(ByProtocol, &gEfiSimpleFileSystemProtocolGuid, NULL, &HandleCount, &Handles))))
 	{
-		Print(L"error getting file system handles -> 0x%p\n", Result);
+		DbgMsg(L"error getting file system handles -> 0x%p\n", Result);
 		return Result;
 	}
 
@@ -150,26 +150,26 @@ EFI_STATUS EFIAPI GetBootMgfwPath(EFI_DEVICE_PATH** BootMgfwDevicePath)
 	{
 		if (EFI_ERROR((Result = gBS->OpenProtocol(Handles[Idx], &gEfiSimpleFileSystemProtocolGuid, (VOID**)&FileSystem, gImageHandle, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL))))
 		{
-			Print(L"error opening protocol -> 0x%p\n", Result);
+			DbgMsg(L"error opening protocol -> 0x%p\n", Result);
 			return Result;
 		}
 
 		if (EFI_ERROR((Result = FileSystem->OpenVolume(FileSystem, &VolumeHandle))))
 		{
-			Print(L"error opening file system -> 0x%p\n", Result);
+			DbgMsg(L"error opening file system -> 0x%p\n", Result);
 			return Result;
 		}
 
-		if (!EFI_ERROR(VolumeHandle->Open(VolumeHandle, &BootMgfwHandle, WINDOWS_BOOTMGFW_PATH, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY)))
+		if (!EFI_ERROR(VolumeHandle->Open(VolumeHandle, &BootMgfwHandle, (CHAR16*)WINDOWS_BOOTMGFW_PATH, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY)))
 		{
 			VolumeHandle->Close(BootMgfwHandle);
-			*BootMgfwDevicePath = FileDevicePath(Handles[Idx], WINDOWS_BOOTMGFW_PATH);
+			*BootMgfwDevicePath = FileDevicePath(Handles[Idx], (CHAR16*)WINDOWS_BOOTMGFW_PATH);
 			return EFI_SUCCESS;
 		}
 
 		if (EFI_ERROR((Result = gBS->CloseProtocol(Handles[Idx], &gEfiSimpleFileSystemProtocolGuid, gImageHandle, NULL))))
 		{
-			Print(L"error closing protocol -> 0x%p\n", Result);
+			DbgMsg(L"error closing protocol -> 0x%p\n", Result);
 			return Result;
 		}
 	}
@@ -184,21 +184,21 @@ EFI_STATUS EFIAPI InstallBootMgfwHooks(EFI_HANDLE ImageHandle)
 	if (EFI_ERROR(Result = gBS->HandleProtocol(ImageHandle, &gEfiLoadedImageProtocolGuid, (VOID**)&BootMgfw)))
 		return Result;
 
-	Print(L"BootMgfw Image Base -> 0x%p\n", BootMgfw->ImageBase);
-	Print(L"BootMgfw Image Size -> 0x%x\n", BootMgfw->ImageSize);
+	DbgMsg(L"BootMgfw Image Base -> 0x%p\n", BootMgfw->ImageBase);
+	DbgMsg(L"BootMgfw Image Size -> 0x%x\n", BootMgfw->ImageSize);
 
 	VOID* ArchStartBootApplication =
 		FindPattern(
 			BootMgfw->ImageBase,
 			BootMgfw->ImageSize,
-			START_BOOT_APPLICATION_SIG,
-			START_BOOT_APPLICATION_MASK
+			(VOID*)START_BOOT_APPLICATION_SIG,
+			(VOID*)START_BOOT_APPLICATION_MASK
 		);
 
 	if (!ArchStartBootApplication)
 		return EFI_NOT_FOUND;
 
-	Print(L"BootMgfw.BlImgStartBootApplication -> 0x%p\n", ArchStartBootApplication);
+	DbgMsg(L"BootMgfw.BlImgStartBootApplication -> 0x%p\n", ArchStartBootApplication);
 	MakeInlineHook(&BootMgfwShitHook, ArchStartBootApplication, &ArchStartBootApplicationHook, TRUE);
 	return EFI_SUCCESS;
 }
@@ -208,46 +208,42 @@ EFI_STATUS EFIAPI ArchStartBootApplicationHook(VOID* AppEntry, VOID* ImageBase, 
 	// disable ArchStartBootApplication shithook
 	DisableInlineHook(&BootMgfwShitHook);
 
+	io::vga::Clear();
+	io::vga::Output(AsciiArt);
+	DbgMsg(L"\n");
+
 	// on 1703 and below, winload does not export any functions
-	if (!GetExport(ImageBase, "BlLdrLoadImage"))
+	if (!GetExport(ImageBase, (VOID*)"BlLdrLoadImage"))
 	{
 		VOID* ImgLoadPEImageEx =
 			FindPattern(
 				ImageBase,
 				ImageSize,
-				LOAD_PE_IMG_SIG,
-				LOAD_PE_IMG_MASK
+				(VOID*)LOAD_PE_IMG_SIG,
+				(VOID*)LOAD_PE_IMG_MASK
 			);
 
-		gST->ConOut->ClearScreen(gST->ConOut);
-		gST->ConOut->OutputString(gST->ConOut, AsciiArt);
-		Print(L"\n");
-
-		Print(L"Hyper-V PayLoad Size -> 0x%x\n", PayLoadSize());
-		Print(L"winload.BlImgLoadPEImageEx -> 0x%p\n", RESOLVE_RVA(ImgLoadPEImageEx, 10, 6));
-		MakeInlineHook(&WinLoadImageShitHook, RESOLVE_RVA(ImgLoadPEImageEx, 10, 6), &BlImgLoadPEImageEx, TRUE);
+		DbgMsg(L"Hyper-V PayLoad Size -> 0x%x\n", PayLoadSize());
+		DbgMsg(L"winload.BlImgLoadPEImageEx -> 0x%p\n", RESOLVE_RVA(ImgLoadPEImageEx, 10, 6));
+		MakeInlineHook(&WinLoadImageShitHook, (VOID*)RESOLVE_RVA(ImgLoadPEImageEx, 10, 6), &BlImgLoadPEImageEx, TRUE);
 	}
 	else
 	{
-		VOID* LdrLoadImage = GetExport(ImageBase, "BlLdrLoadImage");
+		VOID* LdrLoadImage = GetExport(ImageBase, (VOID*)"BlLdrLoadImage");
 		VOID* ImgAllocateImageBuffer =
 			FindPattern(
 				ImageBase,
 				ImageSize,
-				ALLOCATE_IMAGE_BUFFER_SIG,
-				ALLOCATE_IMAGE_BUFFER_MASK
+				(VOID*)ALLOCATE_IMAGE_BUFFER_SIG,
+				(VOID*)ALLOCATE_IMAGE_BUFFER_MASK
 			);
 
-		gST->ConOut->ClearScreen(gST->ConOut);
-		gST->ConOut->OutputString(gST->ConOut, AsciiArt);
-		Print(L"\n");
-
-		Print(L"Hyper-V PayLoad Size -> 0x%x\n", PayLoadSize());
-		Print(L"winload.BlLdrLoadImage -> 0x%p\n", LdrLoadImage);
-		Print(L"winload.BlImgAllocateImageBuffer -> 0x%p\n", RESOLVE_RVA(ImgAllocateImageBuffer, 5, 1));
+		DbgMsg(L"Hyper-V PayLoad Size -> 0x%x\n", PayLoadSize());
+		DbgMsg(L"winload.BlLdrLoadImage -> 0x%p\n", LdrLoadImage);
+		DbgMsg(L"winload.BlImgAllocateImageBuffer -> 0x%p\n", RESOLVE_RVA(ImgAllocateImageBuffer, 5, 1));
 
 		MakeInlineHook(&WinLoadImageShitHook, LdrLoadImage, &BlLdrLoadImage, TRUE);
-		MakeInlineHook(&WinLoadAllocateImageHook, RESOLVE_RVA(ImgAllocateImageBuffer, 5, 1), &BlImgAllocateImageBuffer, TRUE);
+		MakeInlineHook(&WinLoadAllocateImageHook, (VOID*)RESOLVE_RVA(ImgAllocateImageBuffer, 5, 1), &BlImgAllocateImageBuffer, TRUE);
 	}
 	return ((IMG_ARCH_START_BOOT_APPLICATION)BootMgfwShitHook.Address)(AppEntry, ImageBase, ImageSize, BootOption, ReturnArgs);
 }

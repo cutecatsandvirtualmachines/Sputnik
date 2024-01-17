@@ -251,6 +251,10 @@ int Main() {
 			}
 		}
 	}
+	else {
+		DbgLog("Restored backup!");
+		MoveFileW(bootmgfwBackupPath.c_str(), bootmgfwPath.c_str());
+	}
 }
 
 int main() {

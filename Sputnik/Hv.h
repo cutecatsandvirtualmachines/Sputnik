@@ -1,6 +1,8 @@
 #pragma once
 #include "PayLoad.h"
 
+#include <Globals.h>
+
 extern PSPUTNIK_T PayLoadDataPtr;
 #define INTEL_VMEXIT_HANDLER_SIG "\x65\xC6\x04\x25\x6D\x00\x00\x00\x00\x48\x8B\x4C\x24\x00\x48\x8B\x54\x24\x00\xE8\x00\x00\x00\x00\xE9"
 #define INTEL_VMEXIT_HANDLER_MASK "xxxxxxxxxxxxx?xxxx?x????x"
@@ -20,7 +22,7 @@ static_assert(sizeof(INTEL_VMEXIT_HANDLER_SIG) == 26, "signature is invalid leng
 /// <param name="SputnikData">all the data needed to map the module...</param>
 /// <param name="ImageBase">base address of the payload...</param>
 /// <returns></returns>
-VOID* MapModule(PSPUTNIK_T SputnikData, UINT8* ImageBase);
+VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase);
 
 /// <summary>
 /// hook vmexit handler...

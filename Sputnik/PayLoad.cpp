@@ -6,11 +6,11 @@ VOID* PayLoad = NULL;
 
 UINT32 PayLoadSize(VOID)
 {
-	EFI_IMAGE_DOS_HEADER* RecordDosImageHeader = PayLoad;
+	EFI_IMAGE_DOS_HEADER* RecordDosImageHeader = (EFI_IMAGE_DOS_HEADER*)PayLoad;
 	if (RecordDosImageHeader->e_magic != EFI_IMAGE_DOS_SIGNATURE)
 		return NULL;
 
-	EFI_IMAGE_NT_HEADERS64* RecordNtHeaders = (UINT64)RecordDosImageHeader + RecordDosImageHeader->e_lfanew;
+	EFI_IMAGE_NT_HEADERS64* RecordNtHeaders = (EFI_IMAGE_NT_HEADERS64*)RecordDosImageHeader + RecordDosImageHeader->e_lfanew;
 	if (RecordNtHeaders->Signature != EFI_IMAGE_NT_SIGNATURE)
 		return NULL;
 
@@ -19,15 +19,15 @@ UINT32 PayLoadSize(VOID)
 
 VOID* PayLoadEntry(VOID* ModuleBase)
 {
-	EFI_IMAGE_DOS_HEADER* RecordDosImageHeader = PayLoad;
+	EFI_IMAGE_DOS_HEADER* RecordDosImageHeader = (EFI_IMAGE_DOS_HEADER*)PayLoad;
 	if (RecordDosImageHeader->e_magic != EFI_IMAGE_DOS_SIGNATURE)
 		return NULL;
 
-	EFI_IMAGE_NT_HEADERS64* RecordNtHeaders = (UINT64)RecordDosImageHeader + RecordDosImageHeader->e_lfanew;
+	EFI_IMAGE_NT_HEADERS64* RecordNtHeaders = (EFI_IMAGE_NT_HEADERS64*)RecordDosImageHeader + RecordDosImageHeader->e_lfanew;
 	if (RecordNtHeaders->Signature != EFI_IMAGE_NT_SIGNATURE)
 		return NULL;
 
-	return (UINT64)ModuleBase + RecordNtHeaders->OptionalHeader.AddressOfEntryPoint;
+	return (VOID*)((UINTN)ModuleBase + RecordNtHeaders->OptionalHeader.AddressOfEntryPoint);
 }
 
 // programmed by: hMihaiDavid
@@ -69,7 +69,7 @@ VOID* AddSection(VOID* ImageBase, CHAR8* SectionName, UINT32 VirtualSize, UINT32
 		P2ALIGNUP(newSectionHeader->VirtualAddress + 
 			newSectionHeader->Misc.VirtualSize, sectionAlignment);
 
-	return ((UINT64)ImageBase) + newSectionHeader->VirtualAddress;
+	return (VOID*)((UINT64)ImageBase + newSectionHeader->VirtualAddress);
 }
 
 EFI_STATUS LoadPayLoadFromDisk(VOID** PayLoadBufferPtr)
@@ -85,7 +85,7 @@ EFI_STATUS LoadPayLoadFromDisk(VOID** PayLoadBufferPtr)
 
 	if (EFI_ERROR((Result = gBS->LocateHandleBuffer(ByProtocol, &gEfiSimpleFileSystemProtocolGuid, NULL, &HandleCount, &Handles))))
 	{
-		Print(L"error getting file system handles -> 0x%p\n", Result);
+		DbgMsg(L"error getting file system handles -> 0x%p\n", Result);
 		return Result;
 	}
 
@@ -93,24 +93,24 @@ EFI_STATUS LoadPayLoadFromDisk(VOID** PayLoadBufferPtr)
 	{
 		if (EFI_ERROR((Result = gBS->OpenProtocol(Handles[Idx], &gEfiSimpleFileSystemProtocolGuid, (VOID**)&FileSystem, gImageHandle, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL))))
 		{
-			Print(L"error opening protocol -> 0x%p\n", Result);
+			DbgMsg(L"error opening protocol -> 0x%p\n", Result);
 			return Result;
 		}
 
 		if (EFI_ERROR((Result = FileSystem->OpenVolume(FileSystem, &VolumeHandle))))
 		{
-			Print(L"error opening file system -> 0x%p\n", Result);
+			DbgMsg(L"error opening file system -> 0x%p\n", Result);
 			return Result;
 		}
 
-		if (!EFI_ERROR((Result = VolumeHandle->Open(VolumeHandle, &PayLoadFileHandle, PAYLOAD_PATH, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY))))
+		if (!EFI_ERROR((Result = VolumeHandle->Open(VolumeHandle, &PayLoadFileHandle, (CHAR16*)PAYLOAD_PATH, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY))))
 		{
 			VolumeHandle->Close(VolumeHandle);
-			PayLoadDevicePath = FileDevicePath(Handles[Idx], PAYLOAD_PATH);
+			PayLoadDevicePath = FileDevicePath(Handles[Idx], (CHAR16*)PAYLOAD_PATH);
 
 			if (EFI_ERROR((Result = EfiOpenFileByDevicePath(&PayLoadDevicePath, &PayLoadFile, EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, NULL))))
 			{
-				Print(L"failed to open payload file... reason -> %r\n", Result);
+				DbgMsg(L"failed to open payload file... reason -> %r\n", Result);
 				return Result;
 			}
 
@@ -121,16 +121,16 @@ EFI_STATUS LoadPayLoadFromDisk(VOID** PayLoadBufferPtr)
 			{
 				if (Result == EFI_BUFFER_TOO_SMALL)
 				{
-					gBS->AllocatePool(EfiBootServicesData, FileInfoSize, &FileInfoPtr);
+					gBS->AllocatePool(EfiBootServicesData, FileInfoSize, (VOID**)&FileInfoPtr);
 					if (EFI_ERROR(Result = PayLoadFile->GetInfo(PayLoadFile, &gEfiFileInfoGuid, &FileInfoSize, FileInfoPtr)))
 					{
-						Print(L"get backup file information failed... reason -> %r\n", Result);
+						DbgMsg(L"get backup file information failed... reason -> %r\n", Result);
 						return Result;
 					}
 				}
 				else
 				{
-					Print(L"Failed to get file information... reason -> %r\n", Result);
+					DbgMsg(L"Failed to get file information... reason -> %r\n", Result);
 					return Result;
 				}
 			}
@@ -141,13 +141,13 @@ EFI_STATUS LoadPayLoadFromDisk(VOID** PayLoadBufferPtr)
 
 			if (EFI_ERROR((Result = PayLoadFile->Read(PayLoadFile, &PayLoadSize, PayLoadBuffer))))
 			{
-				Print(L"Failed to read payload file into buffer... reason -> %r\n", Result);
+				DbgMsg(L"Failed to read payload file into buffer... reason -> %r\n", Result);
 				return Result;
 			}
 
 			if (EFI_ERROR((Result = PayLoadFile->Delete(PayLoadFile))))
 			{
-				Print(L"unable to delete payload file... reason -> %r\n", Result);
+				DbgMsg(L"unable to delete payload file... reason -> %r\n", Result);
 				return Result;
 			}
 
@@ -157,6 +157,6 @@ EFI_STATUS LoadPayLoadFromDisk(VOID** PayLoadBufferPtr)
 		}
 	}
 
-	Print(L"unable to find payload on disk...\n");
+	DbgMsg(L"unable to find payload on disk...\n");
 	return EFI_ABORTED;
 }

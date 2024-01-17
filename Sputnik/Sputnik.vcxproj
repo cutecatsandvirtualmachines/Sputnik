@@ -54,6 +54,7 @@
       <Optimization>Disabled</Optimization>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <AdditionalIncludeDirectories>$(ProjectDir)../SELib/SELib/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>EFI Application</SubSystem>
@@ -76,15 +77,15 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="BootMgfw.c" />
-    <ClCompile Include="Hv.c" />
-    <ClCompile Include="HvLoader.c" />
-    <ClCompile Include="InlineHook.c" />
-    <ClCompile Include="PayLoad.c" />
-    <ClCompile Include="SplashScreen.c" />
-    <ClCompile Include="UefiMain.c" />
-    <ClCompile Include="Utils.c" />
-    <ClCompile Include="WinLoad.c" />
+    <ClCompile Include="BootMgfw.cpp" />
+    <ClCompile Include="Hv.cpp" />
+    <ClCompile Include="HvLoader.cpp" />
+    <ClCompile Include="InlineHook.cpp" />
+    <ClCompile Include="PayLoad.cpp" />
+    <ClCompile Include="SplashScreen.cpp" />
+    <ClCompile Include="UefiMain.cpp" />
+    <ClCompile Include="Utils.cpp" />
+    <ClCompile Include="WinLoad.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BootMgfw.h" />

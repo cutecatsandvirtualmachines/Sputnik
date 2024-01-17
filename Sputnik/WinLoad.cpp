@@ -30,7 +30,7 @@ EFI_STATUS EFIAPI BlLdrLoadImage
 	VOID* Arg16
 )
 {
-	if (!StrCmp(ModuleName, L"hv.exe"))
+	if (!StrCmp(ModuleName, (CHAR16*)L"hv.exe"))
 		HyperVloading = TRUE;
 
 	// disable shithook and call the original function...
@@ -40,8 +40,8 @@ EFI_STATUS EFIAPI BlLdrLoadImage
 		Arg1,
 		ModulePath, 
 		ModuleName, 
-		Arg4,
-		Arg5,
+		(UINT64*)Arg4,
+		(UINT32*)Arg5,
 		Arg6,
 		Arg7,
 		lplpTableEntry,
@@ -59,7 +59,7 @@ EFI_STATUS EFIAPI BlLdrLoadImage
 	if (!HookedHyperV)
 		EnableInlineHook(&WinLoadImageShitHook);
 
-	if (!StrCmp(ModuleName, L"hv.exe"))
+	if (!StrCmp(ModuleName, (CHAR16*)L"hv.exe"))
 	{
 		HookedHyperV = TRUE;
 		SPUTNIK_T SputnikData;
@@ -70,12 +70,12 @@ EFI_STATUS EFIAPI BlLdrLoadImage
 		MakeSputnikData
 		(
 			&SputnikData, 
-			TableEntry->ModuleBase,
+			(VOID*)TableEntry->ModuleBase,
 			TableEntry->SizeOfImage, 
 			AddSection
 			(
-				TableEntry->ModuleBase,
-				"eac0",
+				(VOID*)TableEntry->ModuleBase,
+				(CHAR8*)"eac0",
 				PayLoadSize(),
 				SECTION_RWX
 			),
@@ -84,9 +84,9 @@ EFI_STATUS EFIAPI BlLdrLoadImage
 
 		HookVmExit
 		(
-			SputnikData.HypervModuleBase,
-			SputnikData.HypervModuleSize,
-			MapModule(&SputnikData, PayLoad)
+			(VOID*)SputnikData.HypervModuleBase,
+			(VOID*)SputnikData.HypervModuleSize,
+			MapModule(&SputnikData, (UINT8*)PayLoad)
 		);
 
 		// extend the size of the image in hyper-v's nt headers and LDR data entry...
@@ -131,34 +131,36 @@ EFI_STATUS EFIAPI BlImgLoadPEImageEx
 		a11,
 		a12, 
 		a13, 
-		a14
+		a14,
+		0,
+		0
 	);
 
 	// continue hooking BlImgLoadPEImageEx until we have shithooked hvloader...
 	if (!InstalledHvLoaderHook)
 		EnableInlineHook(&WinLoadImageShitHook);
 
-	if (StrStr(ImagePath, L"hvloader.efi"))
+	if (StrStr(ImagePath, (CHAR16*)L"hvloader.efi"))
 	{
 		VOID* LoadImage =
 			FindPattern(
-				*ImageBasePtr,
+				(VOID*)*ImageBasePtr,
 				*ImageSize,
-				HV_LOAD_PE_IMG_FROM_BUFFER_SIG,
-				HV_LOAD_PE_IMG_FROM_BUFFER_MASK
+				(VOID*)HV_LOAD_PE_IMG_FROM_BUFFER_SIG,
+				(VOID*)HV_LOAD_PE_IMG_FROM_BUFFER_MASK
 			);
 		VOID* AllocImage =
 			FindPattern(
-				*ImageBasePtr,
+				(VOID*)*ImageBasePtr,
 				*ImageSize,
-				HV_ALLOCATE_IMAGE_BUFFER_SIG,
-				HV_ALLOCATE_IMAGE_BUFFER_MASK
+				(VOID*)HV_ALLOCATE_IMAGE_BUFFER_SIG,
+				(VOID*)HV_ALLOCATE_IMAGE_BUFFER_MASK
 			);
 
 		if(LoadImage)
-			MakeInlineHook(&HvLoadImageBufferHook, RESOLVE_RVA(LoadImage, 5, 1), &HvBlImgLoadPEImageFromSourceBuffer, TRUE);
+			MakeInlineHook(&HvLoadImageBufferHook, (VOID*)RESOLVE_RVA(LoadImage, 5, 1), &HvBlImgLoadPEImageFromSourceBuffer, TRUE);
 
-		MakeInlineHook(&HvLoadAllocImageHook, RESOLVE_RVA(AllocImage, 5, 1), &HvBlImgAllocateImageBuffer, TRUE);
+		MakeInlineHook(&HvLoadAllocImageHook, (VOID*)RESOLVE_RVA(AllocImage, 5, 1), &HvBlImgAllocateImageBuffer, TRUE);
 		InstalledHvLoaderHook = TRUE;
 	}
 	return Result;

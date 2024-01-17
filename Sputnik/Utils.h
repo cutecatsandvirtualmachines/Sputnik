@@ -1,5 +1,6 @@
 #pragma once
 #include <Globals.h>
+#include <IO.h>
 
 #define PORT_NUM 0x2F8
 #define BL_MEMORY_ATTRIBUTE_RWX 0x424000
@@ -18,7 +19,7 @@ static CHAR8 dbg_buffer[0x100];
 	__outbytestring(PORT_NUM, dbg_buffer, AsciiStrLen(dbg_buffer))
 
 #define RESOLVE_RVA(SIG_RESULT, RIP_OFFSET, RVA_OFFSET) \
-	(*(INT32*)(((UINT64)SIG_RESULT) + RVA_OFFSET)) + ((UINT64)SIG_RESULT) + RIP_OFFSET
+	((*(INT32*)(((UINT64)SIG_RESULT) + RVA_OFFSET)) + ((UINT64)SIG_RESULT) + RIP_OFFSET)
 
 typedef struct _LDR_DATA_TABLE_ENTRY
 {
@@ -31,7 +32,7 @@ typedef struct _LDR_DATA_TABLE_ENTRY
 } LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY, **PPLDR_DATA_TABLE_ENTRY;
 
 // taken from umap (btbd)
-BOOLEAN CheckMask(CHAR8* base, CHAR8* pattern, CHAR8* mask);
-VOID* FindPattern(CHAR8* base, UINTN size, CHAR8* pattern, CHAR8* mask);
-VOID* GetExport(UINT8* base, CHAR8* export);
+BOOLEAN CheckMask(VOID* base, VOID* pattern, VOID* mask);
+VOID* FindPattern(VOID* base, UINTN size, VOID* pattern, VOID* mask);
+VOID* GetExport(VOID* base, VOID* exp);
 VOID MemCopy(VOID* dest, VOID* src, UINTN size);

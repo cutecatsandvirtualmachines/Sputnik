@@ -11,31 +11,31 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="UefiMain.c">
+    <ClCompile Include="UefiMain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="WinLoad.c">
+    <ClCompile Include="WinLoad.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BootMgfw.c">
+    <ClCompile Include="BootMgfw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Utils.c">
+    <ClCompile Include="Utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PayLoad.c">
+    <ClCompile Include="PayLoad.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SplashScreen.c">
+    <ClCompile Include="SplashScreen.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="HvLoader.c">
+    <ClCompile Include="HvLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Hv.c">
+    <ClCompile Include="Hv.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="InlineHook.c">
+    <ClCompile Include="InlineHook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

