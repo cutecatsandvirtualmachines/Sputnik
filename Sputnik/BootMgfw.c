@@ -227,7 +227,7 @@ EFI_STATUS EFIAPI ArchStartBootApplicationHook(VOID* AppEntry, VOID* ImageBase, 
 		Print(L"winload.BlImgLoadPEImageEx -> 0x%p\n", RESOLVE_RVA(ImgLoadPEImageEx, 10, 6));
 		MakeInlineHook(&WinLoadImageShitHook, RESOLVE_RVA(ImgLoadPEImageEx, 10, 6), &BlImgLoadPEImageEx, TRUE);
 	}
-	else // else the installed windows version is between 2004 and 1709
+	else
 	{
 		VOID* LdrLoadImage = GetExport(ImageBase, "BlLdrLoadImage");
 		VOID* ImgAllocateImageBuffer =

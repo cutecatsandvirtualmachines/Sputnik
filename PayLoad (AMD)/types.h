@@ -373,10 +373,22 @@ namespace svm
 		u64 lastexcepto;                 // +0x290
 	} vmcb, *pvmcb;
 
-	// AMD does not have a vmread/vmwrite instruction... only a vmload
-	// and vmsave instruction... this means I had to hunt down the damn
-	// VMCB location... this is the pointer chain to the VMCB...
-	//
+#pragma pack(push, 1)
+	typedef struct _SPUTNIK_T
+	{
+		u64 vcpu_run_rva;
+		u64 hyperv_module_base;
+		u64 hyperv_module_size;
+		u64 record_base;
+		u64 record_size;
+		u32 vmcb_base;
+		u32 vmcb_link;
+		u32 vmcb_off;
+	} SPUTNIK_T, * pSPUTNIK_T;
+#pragma pack(pop)
+
+	__declspec(dllexport) inline SPUTNIK_T sputnik_context;
+
 	__forceinline auto get_vmcb() -> pvmcb
 	{
 		return *reinterpret_cast<svm::pvmcb*>(
@@ -442,20 +454,4 @@ namespace svm
 	} command_t, * pcommand_t;
 
 	using vcpu_run_t = pgs_base_struct (__fastcall*)(void*, guest_context*);
-
-	#pragma pack(push, 1)
-	typedef struct _SPUTNIK_T
-	{
-		u64 vcpu_run_rva;
-		u64 hyperv_module_base;
-		u64 hyperv_module_size;
-		u64 record_base;
-		u64 record_size;
-		u32 vmcb_base;
-		u32 vmcb_link;
-		u32 vmcb_off;
-	} SPUTNIK_T, * pSPUTNIK_T;
-	#pragma pack(pop)
-
-	__declspec(dllexport) inline SPUTNIK_T sputnik_context;
 }

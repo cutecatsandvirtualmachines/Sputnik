@@ -155,7 +155,8 @@ EFI_STATUS EFIAPI BlImgLoadPEImageEx
 				HV_ALLOCATE_IMAGE_BUFFER_MASK
 			);
 
-		MakeInlineHook(&HvLoadImageBufferHook, RESOLVE_RVA(LoadImage, 5, 1), &HvBlImgLoadPEImageFromSourceBuffer, TRUE);
+		if(LoadImage)
+			MakeInlineHook(&HvLoadImageBufferHook, RESOLVE_RVA(LoadImage, 5, 1), &HvBlImgLoadPEImageFromSourceBuffer, TRUE);
 
 		MakeInlineHook(&HvLoadAllocImageHook, RESOLVE_RVA(AllocImage, 5, 1), &HvBlImgAllocateImageBuffer, TRUE);
 		InstalledHvLoaderHook = TRUE;
