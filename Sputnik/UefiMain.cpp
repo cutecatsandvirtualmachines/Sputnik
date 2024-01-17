@@ -61,7 +61,7 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable
     }
 
     // wait 5 seconds then call the entry point of bootmgfw...
-    gBS->Stall(SEC_TO_MS(5));
+    threading::Sleep(SEC_TO_MS(5));
     if (EFI_ERROR((Result = gBS->StartImage(BootMgfwHandle, NULL, NULL))))
     {
         DbgMsg(L"Failed to start bootmgfw.efi... reason -> %r\n", Result);
@@ -76,6 +76,6 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable
 _error:
     memory::memset(PayLoad, 0, 0);
     memory::eFree(PayLoad);
-    gBS->Stall(SEC_TO_MS(5));
+    threading::Sleep(SEC_TO_MS(5));
     return Result;
 }
