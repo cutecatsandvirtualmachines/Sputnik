@@ -176,15 +176,8 @@ auto mm::translate_guest_physical(guest_phys_t phys_addr, map_type_t map_type) -
 	return (npt_pt[guest_phys.pt_index].pfn << 12) + guest_phys.offset_4kb;
 }
 
-auto mm::init() -> svm::vmxroot_error_t
-{
-	
-
-	return svm::vmxroot_error_t::error_success;
-}
-
 auto mm::read_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys,
-	guest_virt_t guest_virt, u64 size) -> svm::vmxroot_error_t
+	guest_virt_t guest_virt, u64 size) -> VMX_ROOT_ERROR
 {
 	// handle reading over page boundaries of both src and dest...
 	while (size)
@@ -209,14 +202,14 @@ auto mm::read_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys,
 				map_guest_virt(dirbase, guest_virt, map_type_t::map_dest));
 
 		if (!mapped_dest)
-			return svm::vmxroot_error_t::invalid_guest_virtual;
+			return VMX_ROOT_ERROR::INVALID_GUEST_VIRTUAL;
 
 		const auto mapped_src =
 			reinterpret_cast<void*>(
 				map_guest_phys(guest_phys, map_type_t::map_src));
 
 		if (!mapped_src)
-			return svm::vmxroot_error_t::invalid_guest_physical;
+			return VMX_ROOT_ERROR::INVALID_GUEST_PHYSICAL;
 
 		memcpy(mapped_dest, mapped_src, current_size);
 		guest_phys += current_size;
@@ -224,11 +217,11 @@ auto mm::read_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys,
 		size -= current_size;
 	}
 
-	return svm::vmxroot_error_t::error_success;
+	return VMX_ROOT_ERROR::SUCCESS;
 }
 
 auto mm::write_guest_phys(guest_phys_t dirbase, 
-	guest_phys_t guest_phys, guest_virt_t guest_virt, u64 size) -> svm::vmxroot_error_t
+	guest_phys_t guest_phys, guest_virt_t guest_virt, u64 size) -> VMX_ROOT_ERROR
 {
 	// handle reading over page boundaries of both src and dest...
 	while (size)
@@ -253,14 +246,14 @@ auto mm::write_guest_phys(guest_phys_t dirbase,
 				map_guest_virt(dirbase, guest_virt, map_type_t::map_src));
 
 		if (!mapped_src)
-			return svm::vmxroot_error_t::invalid_guest_virtual;
+			return VMX_ROOT_ERROR::INVALID_GUEST_VIRTUAL;
 
 		const auto mapped_dest =
 			reinterpret_cast<void*>(
 				map_guest_phys(guest_phys, map_type_t::map_dest));
 
 		if (!mapped_src)
-			return svm::vmxroot_error_t::invalid_guest_physical;
+			return VMX_ROOT_ERROR::INVALID_GUEST_PHYSICAL;
 
 		memcpy(mapped_dest, mapped_src, current_size);
 		guest_phys += current_size;
@@ -268,11 +261,11 @@ auto mm::write_guest_phys(guest_phys_t dirbase,
 		size -= current_size;
 	}
 
-	return svm::vmxroot_error_t::error_success;
+	return VMX_ROOT_ERROR::SUCCESS;
 }
 
 auto mm::copy_guest_virt(guest_phys_t dirbase_src, guest_virt_t virt_src,
-	guest_virt_t dirbase_dest, guest_virt_t virt_dest, u64 size) -> svm::vmxroot_error_t
+	guest_virt_t dirbase_dest, guest_virt_t virt_dest, u64 size) -> VMX_ROOT_ERROR
 {
 	while (size)
 	{
@@ -289,14 +282,14 @@ auto mm::copy_guest_virt(guest_phys_t dirbase_src, guest_virt_t virt_src,
 				map_guest_virt(dirbase_src, virt_src, map_type_t::map_src));
 
 		if (!mapped_src)
-			return svm::vmxroot_error_t::invalid_guest_virtual;
+			return VMX_ROOT_ERROR::INVALID_GUEST_VIRTUAL;
 
 		const auto mapped_dest =
 			reinterpret_cast<void*>(
 				map_guest_virt(dirbase_dest, virt_dest, map_type_t::map_dest));
 
 		if (!mapped_dest)
-			return svm::vmxroot_error_t::invalid_guest_virtual;
+			return VMX_ROOT_ERROR::INVALID_GUEST_VIRTUAL;
 
 		auto current_size = min(dest_size, src_size);
 		memcpy(mapped_dest, mapped_src, current_size);
@@ -306,5 +299,5 @@ auto mm::copy_guest_virt(guest_phys_t dirbase_src, guest_virt_t virt_src,
 		size -= current_size;
 	}
 
-	return svm::vmxroot_error_t::error_success;
+	return VMX_ROOT_ERROR::SUCCESS;
 }

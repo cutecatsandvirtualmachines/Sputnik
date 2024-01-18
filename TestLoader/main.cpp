@@ -258,8 +258,9 @@ int Main() {
 		MoveFileW(bootmgfwBackupPath.c_str(), bootmgfwPath.c_str());
 	}
 
-	__cpuidex(info, 0xdeaddead, 0xdada);
-	DbgLog("CPUID result: 0x%x - 0x%x - 0x%x - 0x%x", info[0], info[1], info[2], info[3]);
+	COMMAND_DATA data = { 0 };
+	;
+	DbgLog("CR3: 0x%llx", sputnik::hypercall(VMCALL_GET_CR3, &data, 0, 0));
 
 	DWORD64 value = 0xdeaddead;
 	const auto read_result = sputnik::read_phys(0, (u64)&value, sizeof(value));

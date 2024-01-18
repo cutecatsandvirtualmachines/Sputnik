@@ -1,6 +1,8 @@
 #pragma once
 #include "types.h"
 
+#include <communication.hpp>
+
 #define SELF_REF_PML4_IDX 510
 #define MAPPING_PML4_IDX 100
 
@@ -220,7 +222,6 @@ namespace mm
 
     inline const ppml4e hyperv_pml4{ reinterpret_cast<ppml4e>(SELF_REF_PML4) };
 
-    auto init() -> svm::vmxroot_error_t;
     auto map_guest_phys(guest_phys_t phys_addr, map_type_t map_type = map_type_t::map_src) -> u64;
     auto map_guest_virt(guest_phys_t dirbase, guest_virt_t virt_addr, map_type_t map_type = map_type_t::map_src) -> u64;
 
@@ -231,7 +232,7 @@ namespace mm
     auto translate_guest_physical(guest_phys_t guest_phys, map_type_t map_type = map_type_t::map_src) -> u64;
     auto translate_guest_virtual(guest_phys_t dirbase, guest_virt_t guest_virt, map_type_t map_type = map_type_t::map_src) -> u64;
 
-    auto read_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys, guest_virt_t guest_virt, u64 size) -> svm::vmxroot_error_t;
-    auto write_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys, guest_virt_t guest_virt, u64 size) -> svm::vmxroot_error_t;
-    auto copy_guest_virt(guest_phys_t dirbase_src, guest_virt_t virt_src, guest_virt_t dirbase_dest, guest_virt_t virt_dest, u64 size) ->svm::vmxroot_error_t;
+    auto read_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys, guest_virt_t guest_virt, u64 size) -> VMX_ROOT_ERROR;
+    auto write_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys, guest_virt_t guest_virt, u64 size) -> VMX_ROOT_ERROR;
+    auto copy_guest_virt(guest_phys_t dirbase_src, guest_virt_t virt_src, guest_virt_t dirbase_dest, guest_virt_t virt_dest, u64 size) -> VMX_ROOT_ERROR;
 }

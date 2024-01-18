@@ -1,7 +1,28 @@
 #include "types.h"
 #include "mm.h"
-#include "vmexit.h"
 #include "debug.h"
+
+#include <communication.hpp>
+#include <SELib/Vmcall.h>
+
+bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
+	if(
+		!vmcall::IsVmcall(context->r9) 
+		|| !vmcall::IsValidKey(vmcb->Rax())
+		)
+		return false;
+
+	switch (context->rcx) {
+	case VMCALL_GET_CR3: {
+		vmcb->Rax() = vmcb->Cr3();
+		break;
+	}
+	default: {
+		return false;
+	}
+	}
+	return true;
+}
 
 auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) -> svm::pgs_base_struct
 {
@@ -11,6 +32,8 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 
 	switch (vmcb->ControlArea.ExitCode) {
 	case svm::SvmExitCode::VMEXIT_CPUID: {
+		bHandledExit = HandleCpuid(vmcb, context);
+		bIncRip = true;
 		break;
 	}
 	case svm::SvmExitCode::VMEXIT_NPF: {

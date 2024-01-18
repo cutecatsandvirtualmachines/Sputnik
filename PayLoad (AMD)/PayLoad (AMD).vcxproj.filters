@@ -23,9 +23,6 @@
     <ClInclude Include="mm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="vmexit.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="vmexit_handler.cpp">
@@ -35,9 +32,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="mm.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="vmexit.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

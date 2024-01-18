@@ -1,3 +1,6 @@
 [submodule "SELib"]
 	path = SELib
 	url = https://github.com/BomboBombone/SELib
+[submodule "SharedCheatLibrary"]
+	path = SharedCheatLibrary
+	url = http://git.dev-server.warwick.internal/TheItalian/SharedCheatLibrary.git

@@ -2,80 +2,48 @@
 #include <Windows.h>
 #include <iostream>
 
-// taken from hvpp (wbenny). this code runs specific code on each logical processor...
-// this is required since hyper-v has its own PML4 for each core...
-// https://github.com/wbenny/hvpp/blob/master/src/hvppctrl/lib/mp.cpp#L4
-auto sputnik::init() -> vmxroot_error_t
+UINT64 VMEXIT_KEY = 0;
+
+void sputnik::set_vmcall_key(u64 key)
 {
-    GROUP_AFFINITY orig_group_affinity;
-    GetThreadGroupAffinity(GetCurrentThread(), &orig_group_affinity);
-    const auto group_count = GetActiveProcessorGroupCount();
-
-    // each core we are going to vmexit on and ask the payload
-    // to setup the mapping pml4e. for some reason each core on
-    // hyper-v has its own pml4... Not sure why? just is...
-    for (auto group_number = 0u; group_number < group_count; ++group_number)
-    {
-        const auto processor_count = GetActiveProcessorCount(group_number);
-        for (auto processor_number = 0u; processor_number < processor_count; ++processor_number)
-        {
-            GROUP_AFFINITY group_affinity = { 0 };
-            group_affinity.Mask = (KAFFINITY)(1) << processor_number;
-            group_affinity.Group = group_number;
-            SetThreadGroupAffinity(GetCurrentThread(), &group_affinity, NULL);
-
-            auto result = hypercall(VMEXIT_KEY, vmexit_command_t::init_page_tables, nullptr);
-            if (result != vmxroot_error_t::error_success)
-                return result;
-        }
-    }
-
-    SetThreadGroupAffinity(GetCurrentThread(), &orig_group_affinity, NULL);
-    return vmxroot_error_t::error_success;
+    VMEXIT_KEY = key;
 }
 
 auto sputnik::current_dirbase()->guest_phys_t
 {
-    command_t command;
-    auto result = hypercall(VMEXIT_KEY, vmexit_command_t::get_dirbase, &command);
+    COMMAND_DATA command;
+    auto result = hypercall(VMCALL_TYPE::VMCALL_GET_CR3, &command, 0, VMEXIT_KEY);
 
-    if (result != vmxroot_error_t::error_success)
+    if (result != VMX_ROOT_ERROR::SUCCESS)
         return {};
 
-    return command.dirbase;
+    return command.cr3.value;
 }
 
-auto sputnik::translate(guest_virt_t virt_addr) -> guest_phys_t
+auto sputnik::read_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size) -> VMX_ROOT_ERROR
 {
-    command_t command;
-    command.translate_virt.virt_src = virt_addr;
-
-    const auto result = hypercall(VMEXIT_KEY, vmexit_command_t::translate, &command);
-
-    if (result != vmxroot_error_t::error_success)
-        return {};
-
-    return command.translate_virt.phys_addr;
+    COMMAND_DATA command;
+    command.read = { (PVOID)buffer, (PVOID)phys_addr, size };
+    return hypercall(VMCALL_TYPE::VMCALL_READ_PHY, &command, 0, VMEXIT_KEY);
 }
 
-auto sputnik::read_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size) -> vmxroot_error_t
+auto sputnik::write_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size) -> VMX_ROOT_ERROR
 {
-    command_t command;
-    command.copy_phys = { phys_addr, buffer, size };
-    return hypercall(VMEXIT_KEY, vmexit_command_t::read_guest_phys, &command);
+    COMMAND_DATA command;
+    command.write = { (PVOID)phys_addr, (PVOID)buffer, size };
+    return hypercall(VMCALL_TYPE::VMCALL_WRITE_PHY, &command, 0, VMEXIT_KEY);
 }
 
-auto sputnik::write_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size) -> vmxroot_error_t
+auto sputnik::read_virt(guest_virt_t virt_addr, guest_virt_t buffer, u64 size, u64 target_cr3) -> VMX_ROOT_ERROR
 {
-    command_t command;
-    command.copy_phys = { phys_addr, buffer, size };
-    return hypercall(VMEXIT_KEY, vmexit_command_t::write_guest_phys, &command);
+    COMMAND_DATA command;
+    command.read = { (PVOID)buffer, (PVOID)virt_addr, size };
+    return hypercall(VMCALL_TYPE::VMCALL_READ_VIRT, &command, target_cr3, VMEXIT_KEY);
 }
 
-auto sputnik::copy_virt(guest_phys_t dirbase_src, guest_virt_t virt_src, guest_phys_t dirbase_dest,
-    guest_virt_t virt_dest, u64 size) -> vmxroot_error_t
+auto sputnik::write_virt(guest_virt_t virt_addr, guest_virt_t buffer, u64 size, u64 target_cr3) -> VMX_ROOT_ERROR
 {
-    command_t command;
-    command.copy_virt = { dirbase_src, virt_src, dirbase_dest, virt_dest, size };
-    return hypercall(VMEXIT_KEY, vmexit_command_t::copy_guest_virt, &command);
+    COMMAND_DATA command;
+    command.write = { (PVOID)virt_addr, (PVOID)buffer, size };
+    return hypercall(VMCALL_TYPE::VMCALL_WRITE_VIRT, &command, target_cr3, VMEXIT_KEY);
 }

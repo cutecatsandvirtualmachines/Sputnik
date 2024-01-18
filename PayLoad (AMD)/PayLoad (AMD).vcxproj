@@ -49,11 +49,12 @@
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <ExceptionHandling>false</ExceptionHandling>
-      <AdditionalIncludeDirectories>$(ProjectDir)../SELib/SELib/include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)../SELib/SELib/include;$(ProjectDir)../SharedCheatLibrary/SharedCheatLibrary;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EntryPointSymbol>vmexit_handler</EntryPointSymbol>
-      <AdditionalDependencies>libcmt.lib;libucrt.lib;libvcruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SELib.lib;libcmt.lib;libucrt.lib;libvcruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -64,12 +65,10 @@
     <ClInclude Include="ia32.hpp" />
     <ClInclude Include="mm.h" />
     <ClInclude Include="types.h" />
-    <ClInclude Include="vmexit.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="debug.cpp" />
     <ClCompile Include="mm.cpp" />
-    <ClCompile Include="vmexit.cpp" />
     <ClCompile Include="vmexit_handler.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
