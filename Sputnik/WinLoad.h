@@ -6,8 +6,8 @@ extern INLINE_HOOK WinLoadImageShitHook;
 extern INLINE_HOOK WinLoadAllocateImageHook;
 
 // 2004-1511 winload.BlImgAllocateImageBuffer
-#define ALLOCATE_IMAGE_BUFFER_SIG "\xE8\x00\x00\x00\x00\x8B\xD8\x85\xC0\x78\x7C\x21\x7C\x24\x00\x45\x33\xC0"
-#define ALLOCATE_IMAGE_BUFFER_MASK "x????xxxxxxxxx?xxx"
+#define ALLOCATE_IMAGE_BUFFER_SIG "\x41\xB8\x0A\x00\x00\xD0\x00\x00\xE8\x00\x00\x00\x00\x8B\xD8\x85\xC0"
+#define ALLOCATE_IMAGE_BUFFER_MASK "xxxxxx??x????xxxx"
 
 // 1703-1511
 //

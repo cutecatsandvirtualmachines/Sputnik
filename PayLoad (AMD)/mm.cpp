@@ -142,7 +142,7 @@ auto mm::translate_guest_physical(guest_phys_t phys_addr, map_type_t map_type) -
 
 	const auto npt_pml4 = 
 		reinterpret_cast<pnpt_pml4e>(
-			map_page(vmcb->ncr3, map_type));
+			map_page(vmcb->NestedPageTableCr3(), map_type));
 
 	if (!npt_pml4[guest_phys.pml4_index].present)
 		return {};

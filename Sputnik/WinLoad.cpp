@@ -75,7 +75,7 @@ EFI_STATUS EFIAPI BlLdrLoadImage
 			AddSection
 			(
 				(VOID*)TableEntry->ModuleBase,
-				(CHAR8*)"eac0",
+				(CHAR8*)"payload",
 				PayLoadSize(),
 				SECTION_RWX
 			),
@@ -187,11 +187,11 @@ UINT64 EFIAPI BlImgAllocateImageBuffer
 	// [BlLdrLoadImage] Image Base -> 0xFFFFF80608120000, Image Size -> 0x1600000
 	//
 
-	if (HyperVloading && !ExtendedAllocation && ++AllocationCount == 2)
+	if (HyperVloading && !ExtendedAllocation && !OFFSET_2MB(imageSize))
 	{
 		ExtendedAllocation = TRUE;
 		imageSize += PayLoadSize();
-
+	
 		// allocate the entire hyper-v module as rwx...
 		memoryType = BL_MEMORY_ATTRIBUTE_RWX;
 	}

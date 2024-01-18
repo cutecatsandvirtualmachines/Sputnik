@@ -3,6 +3,7 @@
 // this can also just be set at compile time if you want too, but for PoC im going
 // to read the payload from disk and delete it after...
 VOID* PayLoad = NULL;
+size_t PayLoadSz = 0;
 
 UINT32 PayLoadSize(VOID)
 {
@@ -10,7 +11,7 @@ UINT32 PayLoadSize(VOID)
 	if (RecordDosImageHeader->e_magic != EFI_IMAGE_DOS_SIGNATURE)
 		return NULL;
 
-	EFI_IMAGE_NT_HEADERS64* RecordNtHeaders = (EFI_IMAGE_NT_HEADERS64*)RecordDosImageHeader + RecordDosImageHeader->e_lfanew;
+	EFI_IMAGE_NT_HEADERS64* RecordNtHeaders = (EFI_IMAGE_NT_HEADERS64*)((UINTN)RecordDosImageHeader + RecordDosImageHeader->e_lfanew);
 	if (RecordNtHeaders->Signature != EFI_IMAGE_NT_SIGNATURE)
 		return NULL;
 
@@ -23,7 +24,7 @@ VOID* PayLoadEntry(VOID* ModuleBase)
 	if (RecordDosImageHeader->e_magic != EFI_IMAGE_DOS_SIGNATURE)
 		return NULL;
 
-	EFI_IMAGE_NT_HEADERS64* RecordNtHeaders = (EFI_IMAGE_NT_HEADERS64*)RecordDosImageHeader + RecordDosImageHeader->e_lfanew;
+	EFI_IMAGE_NT_HEADERS64* RecordNtHeaders = (EFI_IMAGE_NT_HEADERS64*)((UINTN)RecordDosImageHeader + RecordDosImageHeader->e_lfanew);
 	if (RecordNtHeaders->Signature != EFI_IMAGE_NT_SIGNATURE)
 		return NULL;
 
@@ -138,6 +139,7 @@ EFI_STATUS LoadPayLoadFromDisk(VOID** PayLoadBufferPtr)
 			VOID* PayLoadBuffer = NULL;
 			UINTN PayLoadSize = FileInfoPtr->FileSize;
 			gBS->AllocatePool(EfiBootServicesData, FileInfoPtr->FileSize, &PayLoadBuffer);
+			memory::memset(PayLoadBuffer, 0, PayLoadSize);
 
 			if (EFI_ERROR((Result = PayLoadFile->Read(PayLoadFile, &PayLoadSize, PayLoadBuffer))))
 			{
@@ -152,6 +154,8 @@ EFI_STATUS LoadPayLoadFromDisk(VOID** PayLoadBufferPtr)
 			}
 
 			*PayLoadBufferPtr = PayLoadBuffer;
+			PayLoadSz = PayLoadSize;
+			DbgMsg(L"Payload buffer: %p\n", PayLoadBuffer);
 			gBS->FreePool(FileInfoPtr);
 			return EFI_SUCCESS;
 		}

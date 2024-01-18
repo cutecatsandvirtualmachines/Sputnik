@@ -6,6 +6,8 @@
 
 #include "debug.h"
 
+#include <libsputnik.hpp>
+
 std::wstring FindEFIPartition(void)
 {
 	TCHAR volumeName[260];
@@ -255,6 +257,14 @@ int Main() {
 		DbgLog("Restored backup!");
 		MoveFileW(bootmgfwBackupPath.c_str(), bootmgfwPath.c_str());
 	}
+
+	__cpuidex(info, 0xdeaddead, 0xdada);
+	DbgLog("CPUID result: 0x%x - 0x%x - 0x%x - 0x%x", info[0], info[1], info[2], info[3]);
+
+	DWORD64 value = 0xdeaddead;
+	const auto read_result = sputnik::read_phys(0, (u64)&value, sizeof(value));
+
+	DbgLog("Read result: 0x%x - 0x%llx", read_result, value);
 }
 
 int main() {

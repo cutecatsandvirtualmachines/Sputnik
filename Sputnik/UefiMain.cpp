@@ -69,13 +69,9 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable
         goto _error;
     }
 
-    memory::memset(PayLoad, 0, 0);
-    memory::eFree(PayLoad);
     return EFI_SUCCESS;
 
 _error:
-    memory::memset(PayLoad, 0, 0);
-    memory::eFree(PayLoad);
     threading::Sleep(SEC_TO_MS(5));
     return Result;
 }

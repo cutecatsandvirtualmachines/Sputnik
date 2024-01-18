@@ -215,38 +215,21 @@ EFI_STATUS EFIAPI ArchStartBootApplicationHook(VOID* AppEntry, VOID* ImageBase, 
 	io::vga::Output(AsciiArt);
 	DbgMsg(L"\n");
 
-	// on 1703 and below, winload does not export any functions
-	if (!GetExport(ImageBase, (VOID*)"BlLdrLoadImage"))
-	{
-		VOID* ImgLoadPEImageEx =
-			FindPattern(
-				ImageBase,
-				ImageSize,
-				(VOID*)LOAD_PE_IMG_SIG,
-				(VOID*)LOAD_PE_IMG_MASK
-			);
+	VOID* LdrLoadImage = GetExport(ImageBase, (VOID*)"BlLdrLoadImage");
+	VOID* ImgAllocateImageBuffer =
+		FindPattern(
+			ImageBase,
+			ImageSize,
+			(VOID*)ALLOCATE_IMAGE_BUFFER_SIG,
+			(VOID*)ALLOCATE_IMAGE_BUFFER_MASK
+		);
 
-		DbgMsg(L"Hyper-V PayLoad Size -> 0x%x\n", PayLoadSize());
-		DbgMsg(L"winload.BlImgLoadPEImageEx -> 0x%p\n", RESOLVE_RVA(ImgLoadPEImageEx, 10, 6));
-		MakeInlineHook(&WinLoadImageShitHook, (VOID*)RESOLVE_RVA(ImgLoadPEImageEx, 10, 6), &BlImgLoadPEImageEx, TRUE);
-	}
-	else
-	{
-		VOID* LdrLoadImage = GetExport(ImageBase, (VOID*)"BlLdrLoadImage");
-		VOID* ImgAllocateImageBuffer =
-			FindPattern(
-				ImageBase,
-				ImageSize,
-				(VOID*)ALLOCATE_IMAGE_BUFFER_SIG,
-				(VOID*)ALLOCATE_IMAGE_BUFFER_MASK
-			);
+	DbgMsg(L"Hyper-V PayLoad Size -> 0x%x\n", PayLoadSize());
+	DbgMsg(L"winload.BlLdrLoadImage -> 0x%p\n", LdrLoadImage);
+	DbgMsg(L"winload.BlImgAllocateImageBuffer -> 0x%p\n", RESOLVE_RVA(ImgAllocateImageBuffer, 13, 9));
 
-		DbgMsg(L"Hyper-V PayLoad Size -> 0x%x\n", PayLoadSize());
-		DbgMsg(L"winload.BlLdrLoadImage -> 0x%p\n", LdrLoadImage);
-		DbgMsg(L"winload.BlImgAllocateImageBuffer -> 0x%p\n", RESOLVE_RVA(ImgAllocateImageBuffer, 5, 1));
+	MakeInlineHook(&WinLoadImageShitHook, LdrLoadImage, BlLdrLoadImage, TRUE);
+	MakeInlineHook(&WinLoadAllocateImageHook, (VOID*)RESOLVE_RVA(ImgAllocateImageBuffer, 13, 9), BlImgAllocateImageBuffer, TRUE);
 
-		MakeInlineHook(&WinLoadImageShitHook, LdrLoadImage, &BlLdrLoadImage, TRUE);
-		MakeInlineHook(&WinLoadAllocateImageHook, (VOID*)RESOLVE_RVA(ImgAllocateImageBuffer, 5, 1), &BlImgAllocateImageBuffer, TRUE);
-	}
 	return ((IMG_ARCH_START_BOOT_APPLICATION)BootMgfwShitHook.Address)(AppEntry, ImageBase, ImageSize, BootOption, ReturnArgs);
 }
