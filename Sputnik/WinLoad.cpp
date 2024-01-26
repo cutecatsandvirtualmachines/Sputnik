@@ -187,7 +187,7 @@ UINT64 EFIAPI BlImgAllocateImageBuffer
 	// [BlLdrLoadImage] Image Base -> 0xFFFFF80608120000, Image Size -> 0x1600000
 	//
 
-	if (HyperVloading && !ExtendedAllocation && !OFFSET_2MB(imageSize))
+	if (HyperVloading && !ExtendedAllocation && ++AllocationCount == 2)
 	{
 		ExtendedAllocation = TRUE;
 		imageSize += PayLoadSize();

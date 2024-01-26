@@ -15,20 +15,6 @@ typedef EFI_STATUS(EFIAPI* MAP_PHYSICAL)
 );
 extern MAP_PHYSICAL MmMapPhysicalMemory;
 
-typedef union _CR3
-{
-    UINTN Value;
-    struct
-    {
-        UINTN reserved1 : 3;
-        UINTN PageLevelWriteThrough : 1;
-        UINTN PageLevelCacheDisable : 1;
-        UINTN reserved2 : 7;
-        UINTN Pml4Pfn : 36;
-        UINTN reserved3 : 16;
-    };
-} CR3;
-
 typedef union _VIRT_ADDR_T
 {
     void* Value;

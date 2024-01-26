@@ -1,4 +1,5 @@
 #include "Hv.h"
+#include <SELib/Identity.h>
 
 PSPUTNIK_T PayLoadDataPtr = NULL;
 VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
@@ -38,12 +39,23 @@ VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
 	UINT32* Name = (UINT32*)(SputnikData->ModuleBase + ExportDir->AddressOfNames);
 	UINT16* Ordinal = (UINT16*)(SputnikData->ModuleBase + ExportDir->AddressOfNameOrdinals);
 
+	const int toFind = 2;
+	int found = 0;
 	for (UINT16 i = 0; i < ExportDir->AddressOfFunctions; i++)
 	{
-		if (AsciiStrStr((CHAR8*)SputnikData->ModuleBase + Name[i], "sputnik_context"))
+		if (found == toFind)
+			break;
+
+		if (AsciiStrStr((CHAR8*)SputnikData->ModuleBase + Name[i], "identity_map"))
+		{
+			auto& identity = *(identity::IDENTITY_MAPPING*)(SputnikData->ModuleBase + Address[Ordinal[i]]);
+			identity.Init();
+			found++;
+		}
+		else if (AsciiStrStr((CHAR8*)SputnikData->ModuleBase + Name[i], "sputnik_context"))
 		{
 			*(SPUTNIK_T*)(SputnikData->ModuleBase + Address[Ordinal[i]]) = *SputnikData;
-			break; // DO NOT REMOVE? #Stink Code 2020...
+			found++;
 		}
 	}
 

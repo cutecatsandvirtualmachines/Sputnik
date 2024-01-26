@@ -1,8 +1,6 @@
 #pragma once
 #include "PayLoad.h"
 
-#include <SELib/Globals.h>
-
 extern PSPUTNIK_T PayLoadDataPtr;
 #define INTEL_VMEXIT_HANDLER_SIG "\x65\xC6\x04\x25\x6D\x00\x00\x00\x00\x48\x8B\x4C\x24\x00\x48\x8B\x54\x24\x00\xE8\x00\x00\x00\x00\xE9"
 #define INTEL_VMEXIT_HANDLER_MASK "xxxxxxxxxxxxx?xxxx?x????x"

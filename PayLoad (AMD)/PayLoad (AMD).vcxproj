@@ -50,11 +50,14 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <ExceptionHandling>false</ExceptionHandling>
       <AdditionalIncludeDirectories>$(ProjectDir)../SELib/SELib/include;$(ProjectDir)../SharedCheatLibrary/SharedCheatLibrary;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/Zc:threadSafeInit- /Zc:tlsGuards- </AdditionalOptions>
     </ClCompile>
     <Link>
       <EntryPointSymbol>vmexit_handler</EntryPointSymbol>
       <AdditionalDependencies>SELib.lib;libcmt.lib;libucrt.lib;libvcruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+      <SectionAlignment>2097152</SectionAlignment>
+      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

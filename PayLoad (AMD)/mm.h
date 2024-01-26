@@ -12,10 +12,6 @@
 #define EPT_LARGE_PDPTE_OFFSET(_) (((u64)(_)) & ((0x1000 * 0x200 * 0x200) - 1))
 #define EPT_LARGE_PDE_OFFSET(_) (((u64)(_)) & ((0x1000 * 0x200) - 1))
 
-#pragma section(".pdpt", read, write)
-#pragma section(".pd", read, write)
-#pragma section(".pt", read, write)
-
 namespace mm
 {
     enum class map_type_t
@@ -216,17 +212,15 @@ namespace mm
         };
     } npt_pde_2mb, * pnpt_pde_2mb;
 
-    __declspec(allocate(".pdpt")) inline pdpte pdpt[512];
-    __declspec(allocate(".pd")) inline pde pd[512];
-    __declspec(allocate(".pt")) inline pte pt[512];
-
+    inline static u8 InitialisedIndex[256] = { 0 };
     inline const ppml4e hyperv_pml4{ reinterpret_cast<ppml4e>(SELF_REF_PML4) };
 
+    auto init() -> u64;
     auto map_guest_phys(guest_phys_t phys_addr, map_type_t map_type = map_type_t::map_src) -> u64;
     auto map_guest_virt(guest_phys_t dirbase, guest_virt_t virt_addr, map_type_t map_type = map_type_t::map_src) -> u64;
 
     auto map_page(host_phys_t phys_addr, map_type_t map_type = map_type_t::map_src) -> u64;
-    auto get_map_virt(u16 offset = 0u, map_type_t map_type = map_type_t::map_src) -> u64;
+    auto get_map_virt(u64 offset = 0u, map_type_t map_type = map_type_t::map_src) -> u64;
 
     auto translate(host_virt_t host_virt) -> u64;
     auto translate_guest_physical(guest_phys_t guest_phys, map_type_t map_type = map_type_t::map_src) -> u64;

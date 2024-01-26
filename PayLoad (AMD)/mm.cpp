@@ -1,5 +1,91 @@
 #include "mm.h"
 #include "debug.h"
+#include <SELib/Identity.h>
+
+
+#define PTI_SHIFT  12L
+#define PDI_SHIFT  21L
+#define PPI_SHIFT  30L
+#define PXI_SHIFT  39L
+
+__declspec(dllexport) identity::IDENTITY_MAPPING identity_map;
+
+constexpr u64 mapped_host_phys_pml = 100;
+
+char* pIdentity = (char*)(mapped_host_phys_pml << PXI_SHIFT);
+u64 pIdentityAsU64 = (u64)(mapped_host_phys_pml << PXI_SHIFT);
+
+auto mm::init() -> u64
+{
+	cpuid_eax_01 cpuid_value;
+	__cpuid((int*)&cpuid_value, 1);
+
+	if (InitialisedIndex[(cpuid_value
+		.cpuid_additional_information
+		.initial_apic_id)])
+	{
+		return VMX_ROOT_ERROR::SUCCESS;
+	}
+
+	{
+		auto mapping = &identity_map;
+
+		hyperv_pml4[MAPPING_PML4_IDX].value = 0;
+		hyperv_pml4[MAPPING_PML4_IDX].present = true;
+		hyperv_pml4[MAPPING_PML4_IDX].writeable = true;
+		hyperv_pml4[MAPPING_PML4_IDX].user_supervisor = true;
+		hyperv_pml4[MAPPING_PML4_IDX].pfn = translate((UINT64)&mapping->pdpt[0]) / PAGE_SIZE;
+
+		for (UINT64 EntryIndex = 0; EntryIndex < 512; EntryIndex++)
+		{
+			mapping->pdpt[EntryIndex].Flags = 0;
+			mapping->pdpt[EntryIndex].Present = true;
+			mapping->pdpt[EntryIndex].Write = true;
+			mapping->pdpt[EntryIndex].Supervisor = true;
+			mapping->pdpt[EntryIndex].PageFrameNumber = translate((UINT64)&mapping->pdt[EntryIndex][0]) / PAGE_SIZE;
+		}
+
+		for (UINT64 EntryGroupIndex = 0; EntryGroupIndex < 512; EntryGroupIndex++)
+		{
+			for (UINT64 EntryIndex = 0; EntryIndex < 512; EntryIndex++)
+			{
+				mapping->pdt[EntryGroupIndex][EntryIndex].Flags = 0;
+				mapping->pdt[EntryGroupIndex][EntryIndex].Present = true;
+				mapping->pdt[EntryGroupIndex][EntryIndex].Write = true;
+				mapping->pdt[EntryGroupIndex][EntryIndex].LargePage = true;
+				mapping->pdt[EntryGroupIndex][EntryIndex].Supervisor = true;
+				mapping->pdt[EntryGroupIndex][EntryIndex].PageFrameNumber = (EntryGroupIndex * 512) + EntryIndex;
+			}
+		}
+
+		mapping->pa = translate((UINT64)mapping->pml4);
+	}
+
+	volatile CR3 cr3 = { 0 };
+	cr3.Flags = __readcr3();
+	__writecr3(cr3.Flags);
+	
+	const auto mapped_pml4 =
+		reinterpret_cast<ppml4e>(
+			mm::map_page(cr3.AddressOfPageDirectory * PAGE_SIZE));
+	
+	// check to make sure translate works...
+	//if (translate((u64)mapped_pml4) != (cr3.AddressOfPageDirectory * PAGE_SIZE))
+	//	return VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
+	
+	// check to make sure the self ref pml4e is valid...
+	if (mapped_pml4[SELF_REF_PML4_IDX].pfn != cr3.AddressOfPageDirectory)
+		return VMX_ROOT_ERROR::INVALID_SELF_REF_PML4E;
+
+	int* p = (int*)map_guest_phys(0);
+	volatile int test = *p;
+
+	InitialisedIndex[(cpuid_value
+		.cpuid_additional_information
+		.initial_apic_id)] = 1;
+
+	return VMX_ROOT_ERROR::SUCCESS;
+}
 
 auto mm::map_guest_phys(guest_phys_t phys_addr, map_type_t map_type) -> u64
 {
@@ -27,32 +113,12 @@ auto mm::map_guest_virt(guest_phys_t dirbase, guest_virt_t virt_addr, map_type_t
 
 auto mm::map_page(host_phys_t phys_addr, map_type_t map_type) -> u64
 {
-	cpuid_eax_01 cpuid_value;
-	__cpuid((int*)&cpuid_value, 1);
-
-	mm::pt[(cpuid_value
-		.cpuid_additional_information
-		.initial_apic_id * 2)
-			+ (unsigned)map_type].pfn = phys_addr >> 12;
-
-	__invlpg(reinterpret_cast<void*>(
-		get_map_virt(virt_addr_t{ phys_addr }.offset_4kb, map_type)));
-
-	return get_map_virt(virt_addr_t{ phys_addr }.offset_4kb, map_type);
+	return pIdentityAsU64 + phys_addr;
 }
 
-auto mm::get_map_virt(u16 offset, map_type_t map_type) -> u64
+auto mm::get_map_virt(u64 offset, map_type_t map_type) -> u64
 {
-	cpuid_eax_01 cpuid_value;
-	__cpuid((int*)&cpuid_value, 1);
-	virt_addr_t virt_addr{ MAPPING_ADDRESS_BASE };
-
-	virt_addr.pt_index = (cpuid_value
-		.cpuid_additional_information
-		.initial_apic_id * 2)
-			+ (unsigned)map_type;
-
-	return virt_addr.value + offset;
+	return pIdentityAsU64 + offset;
 }
 
 auto mm::translate(host_virt_t host_virt) -> u64
@@ -61,11 +127,11 @@ auto mm::translate(host_virt_t host_virt) -> u64
 	virt_addr_t cursor{ (u64)hyperv_pml4 };
 
 	if (!reinterpret_cast<ppml4e>(cursor.value)[virt_addr.pml4_index].present)
-		return {};
+		return 0;
 
 	cursor.pt_index = virt_addr.pml4_index;
 	if (!reinterpret_cast<ppdpte>(cursor.value)[virt_addr.pdpt_index].present)
-		return {};
+		return 1;
 
 	// handle 1gb large page...
 	if (reinterpret_cast<ppdpte>(cursor.value)[virt_addr.pdpt_index].large_page)
@@ -75,7 +141,7 @@ auto mm::translate(host_virt_t host_virt) -> u64
 	cursor.pd_index = virt_addr.pml4_index;
 	cursor.pt_index = virt_addr.pdpt_index;
 	if (!reinterpret_cast<ppde>(cursor.value)[virt_addr.pd_index].present)
-		return {};
+		return 2;
 
 	// handle 2mb large page...
 	if (reinterpret_cast<ppde>(cursor.value)[virt_addr.pd_index].large_page)
@@ -86,7 +152,7 @@ auto mm::translate(host_virt_t host_virt) -> u64
 	cursor.pd_index = virt_addr.pdpt_index;
 	cursor.pt_index = virt_addr.pd_index;
 	if (!reinterpret_cast<ppte>(cursor.value)[virt_addr.pt_index].present)
-		return {};
+		return 3;
 
 	return (reinterpret_cast<ppte>(cursor.value)
 		[virt_addr.pt_index].pfn << 12) + virt_addr.offset_4kb;

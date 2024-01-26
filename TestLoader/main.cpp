@@ -148,6 +148,10 @@ int Main() {
 	if (info[1] == 0x7263694D) {
 		IsVirtualisationEnabled = true;
 		IsHyperVEnabled = true;
+		DbgLog("Virtualization is enabled!");
+	}
+	else {
+		DbgLog("Virtualization is not enabled!");
 	}
 
 	bool CanLoadHypervisor = !IsSecureBootEnabled && IsUEFI && IsCorrectEdition && IsVirtualisationEnabled && IsHyperVEnabled;
@@ -259,13 +263,12 @@ int Main() {
 	}
 
 	COMMAND_DATA data = { 0 };
-	;
-	DbgLog("CR3: 0x%llx", sputnik::hypercall(VMCALL_GET_CR3, &data, 0, 0));
+	DbgLog("CR3 vmcall: 0x%llx", sputnik::hypercall(VMCALL_GET_CR3, &data, 0, 0));
+	DbgLog("CR3: 0x%llx", data.cr3.value);
 
 	DWORD64 value = 0xdeaddead;
-	const auto read_result = sputnik::read_phys(0, (u64)&value, sizeof(value));
-
-	DbgLog("Read result: 0x%x - 0x%llx", read_result, value);
+	DbgLog("Read result: 0x%x - 0x%llx", sputnik::read_phys(0, (u64)&value, sizeof(value)), value);
+	DbgLog("0x0: 0x%llx", value);
 }
 
 int main() {
