@@ -6,7 +6,6 @@
 #include <SELib/Vmcall.h>
 #include <SELib/ia32.h>
 
-
 COMMAND_DATA& GetCommand(svm::Vmcb* vmcb, UINT64 pCmd) {
 	CR3 cr3 = { 0 };
 	cr3.Flags = vmcb->Cr3();

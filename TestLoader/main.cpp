@@ -262,14 +262,11 @@ int Main() {
 		MoveFileW(bootmgfwBackupPath.c_str(), bootmgfwPath.c_str());
 	}
 
-	COMMAND_DATA data = { 0 };
-	DbgLog("CR3 vmcall: 0x%llx", sputnik::hypercall(VMCALL_GET_CR3, &data, 0, 0));
-	DbgLog("CR3: 0x%llx", data.cr3.value);
-
 	while (1) {
 		DWORD64 value = 0xbeefbeef;
 		DWORD64 valueWrite = 0xdeaddead;
-		DbgLog("Write result: 0x%x", sputnik::write_virt((u64)&value, (u64)&valueWrite, sizeof(valueWrite), data.cr3.value));
+		DWORD64 cr3 = sputnik::current_dirbase();
+		DbgLog("Write result: 0x%x", sputnik::write_virt((u64)&value, (u64)&valueWrite, sizeof(valueWrite), cr3));
 		DbgLog("0x0: 0x%llx", value);
 	}
 }
