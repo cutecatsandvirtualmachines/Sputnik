@@ -266,9 +266,12 @@ int Main() {
 	DbgLog("CR3 vmcall: 0x%llx", sputnik::hypercall(VMCALL_GET_CR3, &data, 0, 0));
 	DbgLog("CR3: 0x%llx", data.cr3.value);
 
-	DWORD64 value = 0xdeaddead;
-	DbgLog("Read result: 0x%x - 0x%llx", sputnik::read_phys(0, (u64)&value, sizeof(value)), value);
-	DbgLog("0x0: 0x%llx", value);
+	while (1) {
+		DWORD64 value = 0xbeefbeef;
+		DWORD64 valueWrite = 0xdeaddead;
+		DbgLog("Write result: 0x%x", sputnik::write_virt((u64)&value, (u64)&valueWrite, sizeof(valueWrite), data.cr3.value));
+		DbgLog("0x0: 0x%llx", value);
+	}
 }
 
 int main() {

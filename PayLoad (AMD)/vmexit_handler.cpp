@@ -41,6 +41,39 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 
 		break;
 	}
+	case VMCALL_WRITE_PHY: {
+		auto& cmd = GetCommand(vmcb, context->rdx);
+		if (!cmd.write.pInBuf) {
+			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
+			break;
+		}
+
+		vmcb->Rax() = mm::write_guest_phys(vmcb->Cr3(), (u64)cmd.write.pTarget, (u64)cmd.write.pInBuf, cmd.read.length);
+
+		break;
+	}
+	case VMCALL_READ_VIRT: {
+		auto& cmd = GetCommand(vmcb, context->rdx);
+		if (!cmd.read.pOutBuf || !context->r8) {
+			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
+			break;
+		}
+
+		vmcb->Rax() = mm::copy_guest_virt(context->r8, (u64)cmd.read.pTarget, vmcb->Cr3(), (u64)cmd.read.pOutBuf, cmd.read.length);
+
+		break;
+	}
+	case VMCALL_WRITE_VIRT: {
+		auto& cmd = GetCommand(vmcb, context->rdx);
+		if (!cmd.write.pInBuf || !context->r8) {
+			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
+			break;
+		}
+
+		vmcb->Rax() = mm::copy_guest_virt(vmcb->Cr3(), (u64)cmd.write.pInBuf, context->r8, (u64)cmd.write.pTarget, cmd.write.length);
+
+		break;
+	}
 	default: {
 		return false;
 	}
@@ -54,7 +87,7 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 	bool bIncRip = false;
 	bool bHandledExit = false;
 
-	auto init = mm::init();
+	auto mmInit = mm::init();
 
 	switch (vmcb->ControlArea.ExitCode) {
 	case svm::SvmExitCode::VMEXIT_CPUID: {
