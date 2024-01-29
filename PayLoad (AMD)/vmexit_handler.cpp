@@ -18,7 +18,9 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 
 	switch (context->rcx) {
 	case VMCALL_GET_CR3: {
-		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&vmcb->Cr3(), vmcb->Cr3(), (u64)context->rdx, 8);
+		COMMAND_DATA cmd = { 0 };
+		cmd.cr3.value = vmcb->Cr3();
+		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
 
 		break;
 	}
@@ -69,6 +71,23 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 	case VMCALL_SET_COMM_KEY: {
 		vmcall::SetKey(context->r8);
 		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
+		break;
+	}
+	case VMCALL_GET_EPT_BASE: {
+		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&vmcb->NestedPageTableCr3(), vmcb->Cr3(), (u64)context->rdx, 8);
+		break;
+	}
+	case VMCALL_VIRT_TO_PHY: {
+		auto cmd = GetCommand(vmcb, context->rdx);
+		if (!cmd.translation.va) {
+			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
+			break;
+		}
+		UINT64 dirBase = context->r8 ? context->r8 : vmcb->Cr3();
+		cmd.translation.pa = mm::translate_guest_virtual(dirBase, (u64)cmd.translation.va);
+
+		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
+
 		break;
 	}
 	default: {

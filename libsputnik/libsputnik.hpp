@@ -32,7 +32,7 @@ namespace sputnik
 	/// gets the current cores CR3 value (current address space pml4)...
 	/// </summary>
 	/// <returns>returns the guest cr3 value...</returns>
-	auto current_dirbase()->guest_phys_t;
+	auto current_dirbase() -> guest_phys_t;
 
 	/// <summary>
 	/// reads guest physical memory...
@@ -41,7 +41,7 @@ namespace sputnik
 	/// <param name="buffer">buffer (guest virtual address) to read into...</param>
 	/// <param name="size">number of bytes to read (can only be 0x1000 or less)...</param>
 	/// <returns>STATUS_SUCCESS if the read was successful...</returns>
-	auto read_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size)-> VMX_ROOT_ERROR;
+	auto read_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size) -> VMX_ROOT_ERROR;
 
 	/// <summary>
 	/// write guest physical memory...
@@ -50,9 +50,19 @@ namespace sputnik
 	/// <param name="buffer">guest virtual address to write from...</param>
 	/// <param name="size">number of bytes to write</param>
 	/// <returns></returns>
-	auto write_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size)->VMX_ROOT_ERROR;
+	auto write_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size) -> VMX_ROOT_ERROR;
 
-	auto read_virt(guest_virt_t virt_addr, guest_virt_t buffer, u64 size, u64 target_cr3)->VMX_ROOT_ERROR;
+	auto read_virt(guest_virt_t virt_addr, guest_virt_t buffer, u64 size, u64 target_cr3) -> VMX_ROOT_ERROR;
 
-	auto write_virt(guest_virt_t virt_addr, guest_virt_t buffer, u64 size, u64 target_cr3)->VMX_ROOT_ERROR;
+	auto write_virt(guest_virt_t virt_addr, guest_virt_t buffer, u64 size, u64 target_cr3) -> VMX_ROOT_ERROR;
+
+	auto current_ept_base() -> guest_phys_t;
+
+	auto malloc_locked(u64 size) -> guest_virt_t;
+
+	auto malloc_locked_aligned(u64 size, u64 alignment) -> guest_virt_t;
+
+	auto free_locked(guest_virt_t p);
+
+	auto virt_to_phy(guest_virt_t p, u64 dirbase = 0) -> guest_phys_t;
 }

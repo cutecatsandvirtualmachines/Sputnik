@@ -14,9 +14,15 @@
     <ClCompile Include="libsputnik.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="identity.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="libsputnik.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="identity.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

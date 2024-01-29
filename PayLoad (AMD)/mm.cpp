@@ -10,10 +10,10 @@
 
 __declspec(dllexport) identity::IDENTITY_MAPPING identity_map;
 
-constexpr u64 mapped_host_phys_pml = 100;
+constexpr u64 mapped_host_phys_pml = 360;
 
-char* pIdentity = (char*)(mapped_host_phys_pml << PXI_SHIFT);
-u64 pIdentityAsU64 = (u64)(mapped_host_phys_pml << PXI_SHIFT);
+char* pIdentity = (char*)((mapped_host_phys_pml << PXI_SHIFT) | 0xffff000000000000);
+u64 pIdentityAsU64 = (u64)((mapped_host_phys_pml << PXI_SHIFT) | 0xffff000000000000);
 
 auto mm::init() -> u64
 {
@@ -30,11 +30,11 @@ auto mm::init() -> u64
 	{
 		auto mapping = &identity_map;
 
-		hyperv_pml4[MAPPING_PML4_IDX].value = 0;
-		hyperv_pml4[MAPPING_PML4_IDX].present = true;
-		hyperv_pml4[MAPPING_PML4_IDX].writeable = true;
-		hyperv_pml4[MAPPING_PML4_IDX].user_supervisor = true;
-		hyperv_pml4[MAPPING_PML4_IDX].pfn = translate((UINT64)&mapping->pdpt[0]) / PAGE_SIZE;
+		hyperv_pml4[mapped_host_phys_pml].value = 0;
+		hyperv_pml4[mapped_host_phys_pml].present = true;
+		hyperv_pml4[mapped_host_phys_pml].writeable = true;
+		hyperv_pml4[mapped_host_phys_pml].user_supervisor = true;
+		hyperv_pml4[mapped_host_phys_pml].pfn = translate((UINT64)&mapping->pdpt[0]) / PAGE_SIZE;
 
 		for (UINT64 EntryIndex = 0; EntryIndex < 512; EntryIndex++)
 		{
@@ -64,12 +64,8 @@ auto mm::init() -> u64
 	volatile CR3 cr3 = { 0 };
 	cr3.Flags = __readcr3();
 	__writecr3(cr3.Flags);
-	
-	const auto mapped_pml4 =
-		reinterpret_cast<ppml4e>(
-			mm::map_page(cr3.AddressOfPageDirectory * PAGE_SIZE));
 
-	int* p = (int*)map_guest_phys(0);
+	int* p = (int*)map_guest_phys(0x200000);
 	volatile int test = *p;
 
 	InitialisedIndex[(cpuid_value
@@ -147,7 +143,9 @@ auto mm::translate(host_virt_t host_virt) -> u64
 
 auto mm::translate_guest_virtual(guest_phys_t dirbase, guest_virt_t guest_virt, map_type_t map_type) -> u64
 {
-	dirbase &= 0xFFFFFFFFFFFFF000;
+	CR3 cr3 = { 0 };
+	cr3.Flags = dirbase;
+	dirbase = cr3.AddressOfPageDirectory * 0x1000;
 	virt_addr_t virt_addr{ guest_virt };
 
 	const auto pml4 =

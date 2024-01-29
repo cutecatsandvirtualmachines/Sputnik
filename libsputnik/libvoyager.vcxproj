@@ -7,9 +7,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="identity.cpp" />
     <ClCompile Include="libsputnik.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="identity.hpp" />
     <ClInclude Include="libsputnik.hpp" />
   </ItemGroup>
   <ItemGroup>
