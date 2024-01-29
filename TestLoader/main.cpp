@@ -262,10 +262,13 @@ int Main() {
 		MoveFileW(bootmgfwBackupPath.c_str(), bootmgfwPath.c_str());
 	}
 
+	sputnik::set_vmcall_key(0xbabababa);
+	DWORD64 cr3 = sputnik::current_dirbase();
+	DbgLog("CR3: 0x%llx", cr3);
+	
 	while (1) {
 		DWORD64 value = 0xbeefbeef;
 		DWORD64 valueWrite = 0xdeaddead;
-		DWORD64 cr3 = sputnik::current_dirbase();
 		DbgLog("Write result: 0x%x", sputnik::write_virt((u64)&value, (u64)&valueWrite, sizeof(valueWrite), cr3));
 		DbgLog("0x0: 0x%llx", value);
 	}

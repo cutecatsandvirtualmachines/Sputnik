@@ -68,14 +68,6 @@ auto mm::init() -> u64
 	const auto mapped_pml4 =
 		reinterpret_cast<ppml4e>(
 			mm::map_page(cr3.AddressOfPageDirectory * PAGE_SIZE));
-	
-	// check to make sure translate works...
-	//if (translate((u64)mapped_pml4) != (cr3.AddressOfPageDirectory * PAGE_SIZE))
-	//	return VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
-	
-	// check to make sure the self ref pml4e is valid...
-	if (mapped_pml4[SELF_REF_PML4_IDX].pfn != cr3.AddressOfPageDirectory)
-		return VMX_ROOT_ERROR::INVALID_SELF_REF_PML4E;
 
 	int* p = (int*)map_guest_phys(0);
 	volatile int test = *p;
@@ -116,11 +108,6 @@ auto mm::map_page(host_phys_t phys_addr, map_type_t map_type) -> u64
 	return pIdentityAsU64 + phys_addr;
 }
 
-auto mm::get_map_virt(u64 offset, map_type_t map_type) -> u64
-{
-	return pIdentityAsU64 + offset;
-}
-
 auto mm::translate(host_virt_t host_virt) -> u64
 {
 	virt_addr_t virt_addr{ host_virt };
@@ -131,7 +118,7 @@ auto mm::translate(host_virt_t host_virt) -> u64
 
 	cursor.pt_index = virt_addr.pml4_index;
 	if (!reinterpret_cast<ppdpte>(cursor.value)[virt_addr.pdpt_index].present)
-		return 1;
+		return 0;
 
 	// handle 1gb large page...
 	if (reinterpret_cast<ppdpte>(cursor.value)[virt_addr.pdpt_index].large_page)
@@ -141,7 +128,7 @@ auto mm::translate(host_virt_t host_virt) -> u64
 	cursor.pd_index = virt_addr.pml4_index;
 	cursor.pt_index = virt_addr.pdpt_index;
 	if (!reinterpret_cast<ppde>(cursor.value)[virt_addr.pd_index].present)
-		return 2;
+		return 0;
 
 	// handle 2mb large page...
 	if (reinterpret_cast<ppde>(cursor.value)[virt_addr.pd_index].large_page)
@@ -152,7 +139,7 @@ auto mm::translate(host_virt_t host_virt) -> u64
 	cursor.pd_index = virt_addr.pdpt_index;
 	cursor.pt_index = virt_addr.pd_index;
 	if (!reinterpret_cast<ppte>(cursor.value)[virt_addr.pt_index].present)
-		return 3;
+		return 0;
 
 	return (reinterpret_cast<ppte>(cursor.value)
 		[virt_addr.pt_index].pfn << 12) + virt_addr.offset_4kb;
@@ -160,6 +147,7 @@ auto mm::translate(host_virt_t host_virt) -> u64
 
 auto mm::translate_guest_virtual(guest_phys_t dirbase, guest_virt_t guest_virt, map_type_t map_type) -> u64
 {
+	dirbase &= 0xFFFFFFFFFFFFF000;
 	virt_addr_t virt_addr{ guest_virt };
 
 	const auto pml4 =

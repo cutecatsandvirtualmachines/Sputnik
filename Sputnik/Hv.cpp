@@ -39,7 +39,7 @@ VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
 	UINT32* Name = (UINT32*)(SputnikData->ModuleBase + ExportDir->AddressOfNames);
 	UINT16* Ordinal = (UINT16*)(SputnikData->ModuleBase + ExportDir->AddressOfNameOrdinals);
 
-	const int toFind = 2;
+	const int toFind = 3;
 	int found = 0;
 	for (UINT16 i = 0; i < ExportDir->AddressOfFunctions; i++)
 	{
@@ -55,6 +55,11 @@ VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
 		else if (AsciiStrStr((CHAR8*)SputnikData->ModuleBase + Name[i], "sputnik_context"))
 		{
 			*(SPUTNIK_T*)(SputnikData->ModuleBase + Address[Ordinal[i]]) = *SputnikData;
+			found++;
+		}
+		else if (AsciiStrStr((CHAR8*)SputnikData->ModuleBase + Name[i], "vmcallKey"))
+		{
+			*(UINT64*)(SputnikData->ModuleBase + Address[Ordinal[i]]) = 0;
 			found++;
 		}
 	}

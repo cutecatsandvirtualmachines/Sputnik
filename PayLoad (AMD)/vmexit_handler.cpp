@@ -6,31 +6,24 @@
 #include <SELib/Vmcall.h>
 #include <SELib/ia32.h>
 
-COMMAND_DATA& GetCommand(svm::Vmcb* vmcb, UINT64 pCmd) {
-	CR3 cr3 = { 0 };
-	cr3.Flags = vmcb->Cr3();
-
-	COMMAND_DATA* p = (COMMAND_DATA*)mm::map_guest_virt(cr3.AddressOfPageDirectory * 0x1000, pCmd, mm::map_type_t::map_src);
-	return *p;
+COMMAND_DATA GetCommand(svm::Vmcb* vmcb, UINT64 pCmd) {
+	COMMAND_DATA cmd = { 0 };
+	mm::copy_guest_virt(vmcb->Cr3(), (u64)pCmd, __readcr3(), (u64)&cmd, sizeof(cmd));
+	return cmd;
 }
 
 bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
-	if(
-		!vmcall::IsVmcall(context->r9) 
-		//|| !vmcall::IsValidKey(vmcb->Rax())
-		)
+	if(!vmcall::IsVmcall(context->r9))
 		return false;
 
 	switch (context->rcx) {
 	case VMCALL_GET_CR3: {
-		auto& cmd = GetCommand(vmcb, context->rdx);
-		cmd.cr3.value = vmcb->Cr3();
-		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
+		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&vmcb->Cr3(), vmcb->Cr3(), (u64)context->rdx, 8);
 
 		break;
 	}
 	case VMCALL_READ_PHY: {
-		auto& cmd = GetCommand(vmcb, context->rdx);
+		auto cmd = GetCommand(vmcb, context->rdx);
 		if (!cmd.read.pOutBuf) {
 			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
 			break;
@@ -41,7 +34,7 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 		break;
 	}
 	case VMCALL_WRITE_PHY: {
-		auto& cmd = GetCommand(vmcb, context->rdx);
+		auto cmd = GetCommand(vmcb, context->rdx);
 		if (!cmd.write.pInBuf) {
 			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
 			break;
@@ -52,7 +45,7 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 		break;
 	}
 	case VMCALL_READ_VIRT: {
-		auto& cmd = GetCommand(vmcb, context->rdx);
+		auto cmd = GetCommand(vmcb, context->rdx);
 		if (!cmd.read.pOutBuf || !context->r8) {
 			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
 			break;
@@ -63,7 +56,7 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 		break;
 	}
 	case VMCALL_WRITE_VIRT: {
-		auto& cmd = GetCommand(vmcb, context->rdx);
+		auto cmd = GetCommand(vmcb, context->rdx);
 		if (!cmd.write.pInBuf || !context->r8) {
 			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
 			break;
@@ -71,6 +64,11 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 
 		vmcb->Rax() = mm::copy_guest_virt(vmcb->Cr3(), (u64)cmd.write.pInBuf, context->r8, (u64)cmd.write.pTarget, cmd.write.length);
 
+		break;
+	}
+	case VMCALL_SET_COMM_KEY: {
+		vmcall::SetKey(context->r8);
+		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
 		break;
 	}
 	default: {

@@ -26,7 +26,7 @@ namespace sputnik
 	/// <summary>
 	/// this function is used to cause a vmexit as though its calling a function...
 	/// </summary>
-	extern "C" auto hypercall(u64 code, PCOMMAND_DATA param1, u64 param2, u64 key)-> VMX_ROOT_ERROR;
+	extern "C" auto hypercall(u64 code, PCOMMAND_DATA param1, u64 param2, u64 key) -> VMX_ROOT_ERROR;
 
 	/// <summary>
 	/// gets the current cores CR3 value (current address space pml4)...

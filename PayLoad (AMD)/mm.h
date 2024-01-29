@@ -220,7 +220,6 @@ namespace mm
     auto map_guest_virt(guest_phys_t dirbase, guest_virt_t virt_addr, map_type_t map_type = map_type_t::map_src) -> u64;
 
     auto map_page(host_phys_t phys_addr, map_type_t map_type = map_type_t::map_src) -> u64;
-    auto get_map_virt(u64 offset = 0u, map_type_t map_type = map_type_t::map_src) -> u64;
 
     auto translate(host_virt_t host_virt) -> u64;
     auto translate_guest_physical(guest_phys_t guest_phys, map_type_t map_type = map_type_t::map_src) -> u64;
