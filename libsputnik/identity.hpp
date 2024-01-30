@@ -7,7 +7,7 @@ namespace identity {
 		__declspec(align(0x1000)) Pte::Tables<Pte::Mode::longMode4Level>::Pml4e::Pdpe<Pte::PageSize::nonPse>::Pde<Pte::PageSize::pse> pdt[512][512];
 	} IDENTITY_MAPPING, * PIDENTITY_MAPPING;
 
-	constexpr unsigned long long mapped_host_phys_pml = 4;
+	constexpr unsigned long long mapped_host_phys_pml = 0x10;
 
 	unsigned long long phyToVirt(unsigned long long pa);
 }

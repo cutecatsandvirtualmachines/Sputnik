@@ -58,7 +58,7 @@ auto mm::init() -> u64
 			}
 		}
 
-		mapping->pa = translate((UINT64)mapping->pml4);
+		mapping->pa = translate((UINT64)&mapping->pdpt[0]);
 	}
 
 	volatile CR3 cr3 = { 0 };
@@ -101,6 +101,10 @@ auto mm::map_guest_virt(guest_phys_t dirbase, guest_virt_t virt_addr, map_type_t
 
 auto mm::map_page(host_phys_t phys_addr, map_type_t map_type) -> u64
 {
+	hyperv_pml4[mapped_host_phys_pml].present = true;
+	hyperv_pml4[mapped_host_phys_pml].writeable = true;
+	hyperv_pml4[mapped_host_phys_pml].user_supervisor = true;
+	hyperv_pml4[mapped_host_phys_pml].pfn = identity_map.pa / PAGE_SIZE;
 	return pIdentityAsU64 + phys_addr;
 }
 
@@ -148,89 +152,99 @@ auto mm::translate(host_virt_t host_virt) -> u64
 
 auto mm::translate_guest_virtual(guest_phys_t dirbase, guest_virt_t guest_virt, map_type_t map_type) -> u64
 {
-	CR3 cr3 = { 0 };
-	cr3.Flags = dirbase;
-	dirbase = cr3.AddressOfPageDirectory * 0x1000;
-	virt_addr_t virt_addr{ guest_virt };
+	__try {
+		CR3 cr3 = { 0 };
+		cr3.Flags = dirbase;
+		dirbase = cr3.AddressOfPageDirectory * 0x1000;
+		virt_addr_t virt_addr{ guest_virt };
 
-	const auto pml4 =
-		reinterpret_cast<pml4e*>(
-			map_guest_phys(dirbase, map_type));
+		const auto pml4 =
+			reinterpret_cast<pml4e*>(
+				map_guest_phys(dirbase, map_type));
 
-	if (!pml4 || !pml4[virt_addr.pml4_index].present)
-		return {};
+		if (!pml4 || !pml4[virt_addr.pml4_index].present)
+			return {};
 
-	const auto pdpt =
-		reinterpret_cast<pdpte*>(map_guest_phys(
-			pml4[virt_addr.pml4_index].pfn << 12, map_type));
+		const auto pdpt =
+			reinterpret_cast<pdpte*>(map_guest_phys(
+				pml4[virt_addr.pml4_index].pfn << 12, map_type));
 
-	if (!pdpt || !pdpt[virt_addr.pdpt_index].present)
-		return {};
+		if (!pdpt || !pdpt[virt_addr.pdpt_index].present)
+			return {};
 
-	// handle 1gb pages...
-	if (pdpt[virt_addr.pdpt_index].large_page)
-		return (pdpt[virt_addr.pdpt_index].pfn << 12) + virt_addr.offset_1gb;
+		// handle 1gb pages...
+		if (pdpt[virt_addr.pdpt_index].large_page)
+			return (pdpt[virt_addr.pdpt_index].pfn << 12) + virt_addr.offset_1gb;
 
-	const auto pd =
-		reinterpret_cast<pde*>(map_guest_phys(
-			pdpt[virt_addr.pdpt_index].pfn << 12, map_type));
+		const auto pd =
+			reinterpret_cast<pde*>(map_guest_phys(
+				pdpt[virt_addr.pdpt_index].pfn << 12, map_type));
 
-	if (!pd || !pd[virt_addr.pd_index].present)
-		return {};
+		if (!pd || !pd[virt_addr.pd_index].present)
+			return {};
 
-	// handle 2mb pages...
-	if (pd[virt_addr.pd_index].large_page)
-		return (pd[virt_addr.pd_index].pfn << 12) + virt_addr.offset_2mb;
+		// handle 2mb pages...
+		if (pd[virt_addr.pd_index].large_page)
+			return (pd[virt_addr.pd_index].pfn << 12) + virt_addr.offset_2mb;
 
-	const auto pt =
-		reinterpret_cast<pte*>(map_guest_phys(
-			pd[virt_addr.pd_index].pfn << 12, map_type));
+		const auto pt =
+			reinterpret_cast<pte*>(map_guest_phys(
+				pd[virt_addr.pd_index].pfn << 12, map_type));
 
-	if (!pt || !pt[virt_addr.pt_index].present)
-		return {};
+		if (!pt || !pt[virt_addr.pt_index].present)
+			return {};
 
-	return (pt[virt_addr.pt_index].pfn << 12) + virt_addr.offset_4kb;
+		return (pt[virt_addr.pt_index].pfn << 12) + virt_addr.offset_4kb;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return 0;
+	}
 }
 
 auto mm::translate_guest_physical(guest_phys_t phys_addr, map_type_t map_type) -> u64
 {
-	phys_addr_t guest_phys{ phys_addr };
-	const auto vmcb = svm::get_vmcb();
+	__try {
+		phys_addr_t guest_phys{ phys_addr };
+		const auto vmcb = svm::get_vmcb();
 
-	const auto npt_pml4 = 
-		reinterpret_cast<pnpt_pml4e>(
-			map_page(vmcb->NestedPageTableCr3(), map_type));
+		const auto npt_pml4 = 
+			reinterpret_cast<pnpt_pml4e>(
+				map_page(vmcb->NestedPageTableCr3(), map_type));
 
-	if (!npt_pml4[guest_phys.pml4_index].present)
-		return {};
+		if (!npt_pml4[guest_phys.pml4_index].present)
+			return {};
 
-	const auto npt_pdpt = 
-		reinterpret_cast<pnpt_pdpte>(
-			map_page(npt_pml4[guest_phys.pml4_index].pfn << 12, map_type));
+		const auto npt_pdpt = 
+			reinterpret_cast<pnpt_pdpte>(
+				map_page(npt_pml4[guest_phys.pml4_index].pfn << 12, map_type));
 
-	if (!npt_pdpt[guest_phys.pdpt_index].present)
-		return {};
+		if (!npt_pdpt[guest_phys.pdpt_index].present)
+			return {};
 
-	const auto npt_pd = 
-		reinterpret_cast<pnpt_pde>(
-			map_page(npt_pdpt[guest_phys.pdpt_index].pfn << 12, map_type));
+		const auto npt_pd = 
+			reinterpret_cast<pnpt_pde>(
+				map_page(npt_pdpt[guest_phys.pdpt_index].pfn << 12, map_type));
 
-	if (!npt_pd[guest_phys.pd_index].present)
-		return {};
+		if (!npt_pd[guest_phys.pd_index].present)
+			return {};
 
-	// handle 2mb pages...
-	if (reinterpret_cast<pnpt_pde_2mb>(npt_pd)[guest_phys.pd_index].large_page)
-		return (reinterpret_cast<pnpt_pde_2mb>(npt_pd)
-			[guest_phys.pd_index].pfn << 21) + guest_phys.offset_2mb;
+		// handle 2mb pages...
+		if (reinterpret_cast<pnpt_pde_2mb>(npt_pd)[guest_phys.pd_index].large_page)
+			return (reinterpret_cast<pnpt_pde_2mb>(npt_pd)
+				[guest_phys.pd_index].pfn << 21) + guest_phys.offset_2mb;
 
-	const auto npt_pt =
-		reinterpret_cast<pnpt_pte>(
-			map_page(npt_pd[guest_phys.pd_index].pfn << 12, map_type));
+		const auto npt_pt =
+			reinterpret_cast<pnpt_pte>(
+				map_page(npt_pd[guest_phys.pd_index].pfn << 12, map_type));
 
-	if (!npt_pt[guest_phys.pt_index].present)
-		return {};
+		if (!npt_pt[guest_phys.pt_index].present)
+			return {};
 
-	return (npt_pt[guest_phys.pt_index].pfn << 12) + guest_phys.offset_4kb;
+		return (npt_pt[guest_phys.pt_index].pfn << 12) + guest_phys.offset_4kb;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return 0;
+	}
 }
 
 auto mm::read_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys,
@@ -269,7 +283,7 @@ auto mm::read_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys,
 			return VMX_ROOT_ERROR::INVALID_GUEST_PHYSICAL;
 
 		__try {
-			memcpy(mapped_dest, mapped_src, current_size);
+			__movsb((UINT8*)mapped_dest, (UINT8*)mapped_src, current_size);
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
 			return VMX_ROOT_ERROR::PAGE_FAULT;
@@ -318,7 +332,7 @@ auto mm::write_guest_phys(guest_phys_t dirbase,
 			return VMX_ROOT_ERROR::INVALID_GUEST_PHYSICAL;
 
 		__try {
-			memcpy(mapped_dest, mapped_src, current_size);
+			__movsb((UINT8*)mapped_dest, (UINT8*)mapped_src, current_size);
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
 			return VMX_ROOT_ERROR::PAGE_FAULT;
@@ -360,7 +374,7 @@ auto mm::copy_guest_virt(guest_phys_t dirbase_src, guest_virt_t virt_src,
 
 		auto current_size = min(dest_size, src_size);
 		__try {
-			memcpy(mapped_dest, mapped_src, current_size);
+			__movsb((UINT8*)mapped_dest, (UINT8*)mapped_src, current_size);
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
 			return VMX_ROOT_ERROR::PAGE_FAULT;

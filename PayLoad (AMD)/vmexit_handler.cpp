@@ -107,9 +107,6 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 	if (!bSetupDone) {
 		bSetupDone = true;
 		exception::HostIdt.setup(generic_interrupt_handler_vm, generic_interrupt_handler_ecode_vm);
-		exception::HostIdt.setup_entry(vmx::EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, true, __gp_handler_vm);
-		exception::HostIdt.setup_entry(vmx::EXCEPTION_VECTOR_PAGE_FAULT, true, __pf_handler_vm);
-		exception::HostIdt.setup_entry(vmx::EXCEPTION_VECTOR_DIVIDE_ERROR, true, __de_handler_vm);
 		exception::IdtReg.BaseAddress = (uintptr_t)exception::HostIdt.get_address();
 		exception::IdtReg.Limit = exception::HostIdt.get_limit();
 

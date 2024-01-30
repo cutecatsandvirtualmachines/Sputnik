@@ -67,8 +67,7 @@ namespace mm
             u64 ignore_1 : 1;
             u64 page_size : 1;         
             u64 ignore_2 : 4;
-            u64 pfn : 36; 
-            u64 reserved : 4;
+            u64 pfn : 40; 
             u64 ignore_3 : 11;
             u64 nx : 1; 
         };
@@ -88,8 +87,7 @@ namespace mm
             u64 ignore_1 : 1;
             u64 large_page : 1;        
             u64 ignore_2 : 4;
-            u64 pfn : 36; 
-            u64 reserved : 4;
+            u64 pfn : 40; 
             u64 ignore_3 : 11;
             u64 nx : 1; 
         };
@@ -109,8 +107,7 @@ namespace mm
             u64 ignore_1 : 1;
             u64 large_page : 1;
             u64 ignore_2 : 4;
-            u64 pfn : 36; 
-            u64 reserved : 4;
+            u64 pfn : 40; 
             u64 ignore_3 : 11;
             u64 nx : 1; 
         };
@@ -131,8 +128,7 @@ namespace mm
             u64 access_type : 1;   
             u64 global : 1;           
             u64 ignore_2 : 3;
-            u64 pfn : 36;
-            u64 reserved : 4;
+            u64 pfn : 40;
             u64 ignore_3 : 7;
             u64 pk : 4;  
             u64 nx : 1; 
