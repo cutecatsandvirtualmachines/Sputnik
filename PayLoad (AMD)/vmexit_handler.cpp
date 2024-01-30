@@ -1,10 +1,13 @@
 #include "types.h"
 #include "mm.h"
 #include "debug.h"
+#include "exception.h"
 
 #include <communication.hpp>
 #include <SELib/Vmcall.h>
 #include <SELib/ia32.h>
+
+bool bSetupDone = false;
 
 COMMAND_DATA GetCommand(svm::Vmcb* vmcb, UINT64 pCmd) {
 	COMMAND_DATA cmd = { 0 };
@@ -22,6 +25,12 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 		cmd.cr3.value = vmcb->Cr3();
 		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
 
+		break;
+	}
+	case VMCALL_GET_EPT_BASE: {
+		COMMAND_DATA cmd = { 0 };
+		cmd.cr3.value = vmcb->NestedPageTableCr3();
+		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
 		break;
 	}
 	case VMCALL_READ_PHY: {
@@ -73,10 +82,6 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
 		break;
 	}
-	case VMCALL_GET_EPT_BASE: {
-		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&vmcb->NestedPageTableCr3(), vmcb->Cr3(), (u64)context->rdx, 8);
-		break;
-	}
 	case VMCALL_VIRT_TO_PHY: {
 		auto cmd = GetCommand(vmcb, context->rdx);
 		if (!cmd.translation.va) {
@@ -99,6 +104,22 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 
 auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) -> svm::pgs_base_struct
 {
+	if (!bSetupDone) {
+		bSetupDone = true;
+		exception::HostIdt.setup(generic_interrupt_handler_vm, generic_interrupt_handler_ecode_vm);
+		exception::HostIdt.setup_entry(vmx::EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, true, __gp_handler_vm);
+		exception::HostIdt.setup_entry(vmx::EXCEPTION_VECTOR_PAGE_FAULT, true, __pf_handler_vm);
+		exception::HostIdt.setup_entry(vmx::EXCEPTION_VECTOR_DIVIDE_ERROR, true, __de_handler_vm);
+		exception::IdtReg.BaseAddress = (uintptr_t)exception::HostIdt.get_address();
+		exception::IdtReg.Limit = exception::HostIdt.get_limit();
+
+		svm::sputnik_context.record_base = (u64)pe::FindPE();
+	}
+
+	Seg::DescriptorTableRegister<Seg::Mode::longMode> origIdt = { 0 };
+	__sidt(&origIdt);
+	__lidt(&exception::IdtReg);
+
 	const auto vmcb = svm::get_vmcb();
 	bool bIncRip = false;
 	bool bHandledExit = false;
@@ -119,6 +140,7 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 	}
 	}
 
+	__lidt(&origIdt);
 	if (!bHandledExit) {
 		return reinterpret_cast<svm::vcpu_run_t>(
 			reinterpret_cast<u64>(&vmexit_handler) -

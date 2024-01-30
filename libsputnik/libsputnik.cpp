@@ -60,8 +60,13 @@ auto sputnik::write_virt(guest_virt_t virt_addr, guest_virt_t buffer, u64 size, 
 
 auto sputnik::current_ept_base() -> guest_phys_t
 {
-    guest_phys_t ept_base = 0;
-    return hypercall(VMCALL_TYPE::VMCALL_GET_EPT_BASE, (PCOMMAND_DATA)&ept_base, 0, VMEXIT_KEY) == VMX_ROOT_ERROR::SUCCESS ? ept_base : 0;
+    COMMAND_DATA command = { 0 };
+    auto result = hypercall(VMCALL_TYPE::VMCALL_GET_EPT_BASE, &command, 0, VMEXIT_KEY);
+
+    if (result != VMX_ROOT_ERROR::SUCCESS)
+        return {};
+
+    return command.cr3.value;
 }
 
 auto sputnik::malloc_locked(u64 size) -> guest_virt_t

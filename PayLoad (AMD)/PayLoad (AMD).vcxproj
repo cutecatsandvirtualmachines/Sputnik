@@ -65,14 +65,19 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="debug.h" />
+    <ClInclude Include="exception.h" />
     <ClInclude Include="ia32.hpp" />
     <ClInclude Include="mm.h" />
     <ClInclude Include="types.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="debug.cpp" />
+    <ClCompile Include="exception.cpp" />
     <ClCompile Include="mm.cpp" />
     <ClCompile Include="vmexit_handler.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="IDT.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -106,39 +106,44 @@ auto mm::map_page(host_phys_t phys_addr, map_type_t map_type) -> u64
 
 auto mm::translate(host_virt_t host_virt) -> u64
 {
-	virt_addr_t virt_addr{ host_virt };
-	virt_addr_t cursor{ (u64)hyperv_pml4 };
+	__try {
+		virt_addr_t virt_addr{ host_virt };
+		virt_addr_t cursor{ (u64)hyperv_pml4 };
 
-	if (!reinterpret_cast<ppml4e>(cursor.value)[virt_addr.pml4_index].present)
+		if (!reinterpret_cast<ppml4e>(cursor.value)[virt_addr.pml4_index].present)
+			return 0;
+
+		cursor.pt_index = virt_addr.pml4_index;
+		if (!reinterpret_cast<ppdpte>(cursor.value)[virt_addr.pdpt_index].present)
+			return 0;
+
+		// handle 1gb large page...
+		if (reinterpret_cast<ppdpte>(cursor.value)[virt_addr.pdpt_index].large_page)
+			return (reinterpret_cast<ppdpte>(cursor.value)
+				[virt_addr.pdpt_index].pfn << 30) + virt_addr.offset_1gb;
+
+		cursor.pd_index = virt_addr.pml4_index;
+		cursor.pt_index = virt_addr.pdpt_index;
+		if (!reinterpret_cast<ppde>(cursor.value)[virt_addr.pd_index].present)
+			return 0;
+
+		// handle 2mb large page...
+		if (reinterpret_cast<ppde>(cursor.value)[virt_addr.pd_index].large_page)
+			return (reinterpret_cast<ppde>(cursor.value)
+				[virt_addr.pd_index].pfn << 21) + virt_addr.offset_2mb;
+
+		cursor.pdpt_index = virt_addr.pml4_index;
+		cursor.pd_index = virt_addr.pdpt_index;
+		cursor.pt_index = virt_addr.pd_index;
+		if (!reinterpret_cast<ppte>(cursor.value)[virt_addr.pt_index].present)
+			return 0;
+
+		return (reinterpret_cast<ppte>(cursor.value)
+			[virt_addr.pt_index].pfn << 12) + virt_addr.offset_4kb;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
 		return 0;
-
-	cursor.pt_index = virt_addr.pml4_index;
-	if (!reinterpret_cast<ppdpte>(cursor.value)[virt_addr.pdpt_index].present)
-		return 0;
-
-	// handle 1gb large page...
-	if (reinterpret_cast<ppdpte>(cursor.value)[virt_addr.pdpt_index].large_page)
-		return (reinterpret_cast<ppdpte>(cursor.value)
-			[virt_addr.pdpt_index].pfn << 30) + virt_addr.offset_1gb;
-
-	cursor.pd_index = virt_addr.pml4_index;
-	cursor.pt_index = virt_addr.pdpt_index;
-	if (!reinterpret_cast<ppde>(cursor.value)[virt_addr.pd_index].present)
-		return 0;
-
-	// handle 2mb large page...
-	if (reinterpret_cast<ppde>(cursor.value)[virt_addr.pd_index].large_page)
-		return (reinterpret_cast<ppde>(cursor.value)
-			[virt_addr.pd_index].pfn << 21) + virt_addr.offset_2mb;
-
-	cursor.pdpt_index = virt_addr.pml4_index;
-	cursor.pd_index = virt_addr.pdpt_index;
-	cursor.pt_index = virt_addr.pd_index;
-	if (!reinterpret_cast<ppte>(cursor.value)[virt_addr.pt_index].present)
-		return 0;
-
-	return (reinterpret_cast<ppte>(cursor.value)
-		[virt_addr.pt_index].pfn << 12) + virt_addr.offset_4kb;
+	}
 }
 
 auto mm::translate_guest_virtual(guest_phys_t dirbase, guest_virt_t guest_virt, map_type_t map_type) -> u64
@@ -263,7 +268,12 @@ auto mm::read_guest_phys(guest_phys_t dirbase, guest_phys_t guest_phys,
 		if (!mapped_src)
 			return VMX_ROOT_ERROR::INVALID_GUEST_PHYSICAL;
 
-		memcpy(mapped_dest, mapped_src, current_size);
+		__try {
+			memcpy(mapped_dest, mapped_src, current_size);
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+			return VMX_ROOT_ERROR::PAGE_FAULT;
+		}
 		guest_phys += current_size;
 		guest_virt += current_size;
 		size -= current_size;
@@ -307,7 +317,12 @@ auto mm::write_guest_phys(guest_phys_t dirbase,
 		if (!mapped_src)
 			return VMX_ROOT_ERROR::INVALID_GUEST_PHYSICAL;
 
-		memcpy(mapped_dest, mapped_src, current_size);
+		__try {
+			memcpy(mapped_dest, mapped_src, current_size);
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+			return VMX_ROOT_ERROR::PAGE_FAULT;
+		}
 		guest_phys += current_size;
 		guest_virt += current_size;
 		size -= current_size;
@@ -344,7 +359,12 @@ auto mm::copy_guest_virt(guest_phys_t dirbase_src, guest_virt_t virt_src,
 			return VMX_ROOT_ERROR::INVALID_GUEST_VIRTUAL;
 
 		auto current_size = min(dest_size, src_size);
-		memcpy(mapped_dest, mapped_src, current_size);
+		__try {
+			memcpy(mapped_dest, mapped_src, current_size);
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+			return VMX_ROOT_ERROR::PAGE_FAULT;
+		}
 
 		virt_src += current_size;
 		virt_dest += current_size;
