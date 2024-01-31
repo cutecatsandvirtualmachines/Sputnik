@@ -17,10 +17,20 @@ auto sputnik::current_dirbase()->guest_phys_t
     auto result = hypercall(VMCALL_TYPE::VMCALL_GET_CR3, &command, 0, VMEXIT_KEY);
 
     if (result != VMX_ROOT_ERROR::SUCCESS) {
-        printf("Failed getting cr3: 0x%x - 0x%llx\n", result, &command);
         return {};
     }
-    printf("Got cr3: 0x%x - 0x%llx\n", result, &command);
+
+    return command.cr3.value;
+}
+
+auto sputnik::current_ept_base() -> guest_phys_t
+{
+    COMMAND_DATA command = { 0 };
+    auto result = hypercall(VMCALL_TYPE::VMCALL_GET_EPT_BASE, &command, 0, VMEXIT_KEY);
+
+    if (result != VMX_ROOT_ERROR::SUCCESS) {
+        return {};
+    }
 
     return command.cr3.value;
 }
@@ -59,20 +69,6 @@ auto sputnik::write_virt(guest_virt_t virt_addr, guest_virt_t buffer, u64 size, 
     command.write.pInBuf = (PVOID)buffer;
     command.write.pTarget = (PVOID)virt_addr;
     return hypercall(VMCALL_TYPE::VMCALL_WRITE_VIRT, &command, target_cr3, VMEXIT_KEY);
-}
-
-auto sputnik::current_ept_base() -> guest_phys_t
-{
-    COMMAND_DATA command = { 0 };
-    auto result = hypercall(VMCALL_TYPE::VMCALL_GET_EPT_BASE, &command, 0, VMEXIT_KEY);
-
-    if (result != VMX_ROOT_ERROR::SUCCESS) {
-        printf("Failed getting ncr3: 0x%x - 0x%llx\n", result, &command);
-        return {};
-    }
-    printf("Got ncr3: 0x%x - 0x%llx\n", result, &command);
-
-    return command.cr3.value;
 }
 
 auto sputnik::malloc_locked(u64 size) -> guest_virt_t

@@ -267,51 +267,10 @@ int Main() {
 	sputnik::set_vmcall_key(0xbabababa); 
 	DWORD64 cr3 = sputnik::current_dirbase();
 	DbgLog("CR3: 0x%llx", cr3);
-	DWORD64 nCr3 = sputnik::current_ept_base();
-	DbgLog("nCR3: 0x%llx", nCr3);
 
-	identity::IDENTITY_MAPPING* mapping = (identity::IDENTITY_MAPPING*)sputnik::malloc_locked_aligned(sizeof(identity::IDENTITY_MAPPING), 0x1000);
-	RtlZeroMemory(mapping, sizeof(*mapping));
-	
-	mapping->pml4[0].layout.P = true;
-	mapping->pml4[0].layout.RW = true;
-	mapping->pml4[0].layout.US = true;
-	mapping->pml4[0].layout.PDP = sputnik::virt_to_phy((UINT64)&mapping->pdpt[0]) / 0x1000;
-	
-	for (UINT64 EntryIndex = 0; EntryIndex < 512; EntryIndex++)
-	{
-		mapping->pdpt[EntryIndex].layout.P = true;
-		mapping->pdpt[EntryIndex].layout.RW = true;
-		mapping->pdpt[EntryIndex].layout.US = true;
-		mapping->pdpt[EntryIndex].layout.PD = sputnik::virt_to_phy((UINT64)&mapping->pdt[EntryIndex][0]) / 0x1000;
-	}
-	
-	for (UINT64 EntryGroupIndex = 0; EntryGroupIndex < 512; EntryGroupIndex++)
-	{
-		for (UINT64 EntryIndex = 0; EntryIndex < 512; EntryIndex++)
-		{
-			mapping->pdt[EntryGroupIndex][EntryIndex].page2Mb.P = true;
-			mapping->pdt[EntryGroupIndex][EntryIndex].page2Mb.RW = true;
-			mapping->pdt[EntryGroupIndex][EntryIndex].page2Mb.PS = true;
-			mapping->pdt[EntryGroupIndex][EntryIndex].page2Mb.US = true;
-			mapping->pdt[EntryGroupIndex][EntryIndex].page2Mb.PhysicalPageFrameNumber = (EntryGroupIndex * 512) + EntryIndex;
-		}
-	}
-	
-	DbgLog("Finished setting up identity map");
-	Pte::Tables<Pte::Mode::longMode4Level>::Pml4e* ppml4 = (Pte::Tables<Pte::Mode::longMode4Level>::Pml4e*)sputnik::malloc_locked(0x1000);
-	RtlZeroMemory(ppml4, 0x1000);
-	if (sputnik::read_phys(cr3, (u64)ppml4, 0x1000) != VMX_ROOT_ERROR::SUCCESS) {
-		DbgLog("FAILED READING CR3!!!");
-		return -1;
-	}
-	
-	DbgLog("Read PML4");
-	ppml4[identity::mapped_host_phys_pml].raw = mapping->pml4[0].raw;
-	sputnik::write_phys(cr3, (u64)ppml4, 0x1000);
-	
-	DbgLog("Wrote PML4");
-	
+	auto res = identity::Init(cr3);
+	DbgLog("Identity setup: %d", res);
+
 	DWORD64 value = 0xbeefbeef;
 	DWORD64 valueWrite = 0xdeaddead;
 	DbgLog("Write result: 0x%x", sputnik::write_virt((u64)&value, (u64)&valueWrite, sizeof(valueWrite), cr3));
