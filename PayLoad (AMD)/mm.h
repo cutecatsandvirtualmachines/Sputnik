@@ -208,7 +208,6 @@ namespace mm
         };
     } npt_pde_2mb, * pnpt_pde_2mb;
 
-    inline static u8 InitialisedIndex[256] = { 0 };
     inline const ppml4e hyperv_pml4{ reinterpret_cast<ppml4e>(SELF_REF_PML4) };
 
     auto init() -> u64;

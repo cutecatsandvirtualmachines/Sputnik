@@ -110,6 +110,8 @@ void RootSetup() {
 		exception::IdtReg.Limit = exception::HostIdt.get_limit();
 
 		svm::sputnik_context.record_base = (u64)pe::FindPE();
+
+		auto mmInit = mm::init();
 	}
 }
 
@@ -126,8 +128,6 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 	const auto vmcb = svm::get_vmcb();
 	bool bIncRip = false;
 	bool bHandledExit = false;
-
-	auto mmInit = mm::init();
 
 	switch (vmcb->ControlArea.ExitCode) {
 	case svm::SvmExitCode::VMEXIT_CPUID: {

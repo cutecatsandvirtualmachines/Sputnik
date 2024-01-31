@@ -15,14 +15,11 @@ constexpr u64 mapped_host_phys_pml = 360;
 char* pIdentity = (char*)((mapped_host_phys_pml << PXI_SHIFT) | 0xffff000000000000);
 u64 pIdentityAsU64 = (u64)((mapped_host_phys_pml << PXI_SHIFT) | 0xffff000000000000);
 
+bool bMemInit = false;
+
 auto mm::init() -> u64
 {
-	cpuid_eax_01 cpuid_value;
-	__cpuid((int*)&cpuid_value, 1);
-
-	if (InitialisedIndex[(cpuid_value
-		.cpuid_additional_information
-		.initial_apic_id)])
+	if (bMemInit)
 	{
 		return VMX_ROOT_ERROR::SUCCESS;
 	}
@@ -68,9 +65,7 @@ auto mm::init() -> u64
 	int* p = (int*)map_guest_phys(0x200000);
 	volatile int test = *p;
 
-	InitialisedIndex[(cpuid_value
-		.cpuid_additional_information
-		.initial_apic_id)] = 1;
+	bMemInit = true;
 
 	return VMX_ROOT_ERROR::SUCCESS;
 }
