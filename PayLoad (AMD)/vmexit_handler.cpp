@@ -102,8 +102,7 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 	return true;
 }
 
-auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) -> svm::pgs_base_struct
-{
+void RootSetup() {
 	if (!bSetupDone) {
 		bSetupDone = true;
 		exception::HostIdt.setup(generic_interrupt_handler_vm, generic_interrupt_handler_ecode_vm);
@@ -112,9 +111,16 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 
 		svm::sputnik_context.record_base = (u64)pe::FindPE();
 	}
+}
+
+auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) -> svm::pgs_base_struct
+{
+	RootSetup();
 
 	Seg::DescriptorTableRegister<Seg::Mode::longMode> origIdt = { 0 };
 	__sidt(&origIdt);
+
+	exception::SaveOrigParams(unknown, unknown2, context, origIdt, _AddressOfReturnAddress());
 	__lidt(&exception::IdtReg);
 
 	const auto vmcb = svm::get_vmcb();

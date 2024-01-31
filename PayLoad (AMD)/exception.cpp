@@ -2,8 +2,30 @@
 
 #include <Windows.h>
 
+auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) -> svm::pgs_base_struct;
+
 IDT exception::HostIdt = { 0 };
 Seg::DescriptorTableRegister<Seg::Mode::longMode> exception::IdtReg = { 0 };
+
+struct _HYPERV_EXIT_HANDLER_PARAMS {
+    void* unknown;
+    void* unknown2;
+    svm::pguest_context context;
+    Seg::DescriptorTableRegister<Seg::Mode::longMode> idt;
+    void* rsp;
+};
+
+inline static _HYPERV_EXIT_HANDLER_PARAMS CoreParams[256] = { 0 };
+
+void exception::SaveOrigParams(void* unknown, void* unknown2, svm::pguest_context context, Seg::DescriptorTableRegister<Seg::Mode::longMode> idt, void* rsp)
+{
+    auto core = CPU::ApicId();
+    CoreParams[core].unknown = unknown;
+    CoreParams[core].unknown2 = unknown2;
+    CoreParams[core].context = context;
+    CoreParams[core].idt = idt;
+    CoreParams[core].rsp = rsp;
+}
 
 void exception::seh_handler_ecode_vm(PIDT_REGS_ECODE regs)
 {
@@ -47,6 +69,16 @@ void exception::seh_handler_ecode_vm(PIDT_REGS_ECODE regs)
             }
         }
     }
+
+    auto core = CPU::ApicId();
+
+    regs->rcx = (UINT64)CoreParams[core].unknown;
+    regs->rdx = (UINT64)CoreParams[core].unknown2;
+    regs->r8 = (UINT64)CoreParams[core].context;
+    regs->rsp = (UINT64)CoreParams[core].rsp;
+
+    regs->rip = reinterpret_cast<u64>(&vmexit_handler) - svm::sputnik_context.vcpu_run_rva;
+    __lidt(&CoreParams[core].idt);
 }
 
 void exception::seh_handler_vm(PIDT_REGS regs)
@@ -91,4 +123,14 @@ void exception::seh_handler_vm(PIDT_REGS regs)
             }
         }
     }
+
+    auto core = CPU::ApicId();
+
+    regs->rcx = (UINT64)CoreParams[core].unknown;
+    regs->rdx = (UINT64)CoreParams[core].unknown2;
+    regs->r8 = (UINT64)CoreParams[core].context;
+    regs->rsp = (UINT64)CoreParams[core].rsp;
+
+    regs->rip = reinterpret_cast<u64>(&vmexit_handler) - svm::sputnik_context.vcpu_run_rva;
+    __lidt(&CoreParams[core].idt);
 }

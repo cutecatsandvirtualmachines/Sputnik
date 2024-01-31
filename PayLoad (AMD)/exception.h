@@ -35,4 +35,7 @@ namespace exception {
 
     extern "C" void seh_handler_ecode_vm(PIDT_REGS_ECODE regs);
     extern "C" void seh_handler_vm(PIDT_REGS regs);
+
+    //When an unhandled exception occurs it will use these params to call the original hyper-v handler
+    void SaveOrigParams(void* unknown, void* unknown2, svm::pguest_context context, Seg::DescriptorTableRegister<Seg::Mode::longMode> idt, void* rsp);
 }
