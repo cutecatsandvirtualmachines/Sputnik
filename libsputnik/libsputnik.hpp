@@ -28,6 +28,12 @@ namespace sputnik
 	/// </summary>
 	extern "C" auto hypercall(u64 code, PCOMMAND_DATA param1, u64 param2, u64 key) -> VMX_ROOT_ERROR;
 
+	template<typename T>
+	auto hypercall(u64 code, T param1, u64 param2, u64 key) -> VMX_ROOT_ERROR
+	{
+		return hypercall(code, (PCOMMAND_DATA)param1, param2, key);
+	}
+
 	/// <summary>
 	/// gets the current cores CR3 value (current address space pml4)...
 	/// </summary>

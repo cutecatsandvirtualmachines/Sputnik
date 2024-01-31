@@ -101,10 +101,12 @@ auto mm::map_guest_virt(guest_phys_t dirbase, guest_virt_t virt_addr, map_type_t
 
 auto mm::map_page(host_phys_t phys_addr, map_type_t map_type) -> u64
 {
+	//Rewrite the pml4 entry every time in case hyper-v decides to overwrite it itself
 	hyperv_pml4[mapped_host_phys_pml].present = true;
 	hyperv_pml4[mapped_host_phys_pml].writeable = true;
 	hyperv_pml4[mapped_host_phys_pml].user_supervisor = true;
 	hyperv_pml4[mapped_host_phys_pml].pfn = identity_map.pa / PAGE_SIZE;
+
 	return pIdentityAsU64 + phys_addr;
 }
 
