@@ -9,6 +9,12 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
+    <Filter Include="Header Files\mapper">
+      <UniqueIdentifier>{63bad93d-9578-45ea-822d-95fceb1f13b0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\mapper">
+      <UniqueIdentifier>{75687f01-f574-4318-b8a2-2e4f8c75b08f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="libsputnik.cpp">
@@ -17,6 +23,15 @@
     <ClCompile Include="identity.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mapper\map_driver.cpp">
+      <Filter>Source Files\mapper</Filter>
+    </ClCompile>
+    <ClCompile Include="mapper\drv_image.cpp">
+      <Filter>Source Files\mapper</Filter>
+    </ClCompile>
+    <ClCompile Include="mapper\kernel_ctx.cpp">
+      <Filter>Source Files\mapper</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="libsputnik.hpp">
@@ -24,6 +39,30 @@
     </ClInclude>
     <ClInclude Include="identity.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vdm.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mapper\map_driver.h">
+      <Filter>Header Files\mapper</Filter>
+    </ClInclude>
+    <ClInclude Include="mapper\nt.hpp">
+      <Filter>Header Files\mapper</Filter>
+    </ClInclude>
+    <ClInclude Include="mapper\util.hpp">
+      <Filter>Header Files\mapper</Filter>
+    </ClInclude>
+    <ClInclude Include="mapper\drv_image.h">
+      <Filter>Header Files\mapper</Filter>
+    </ClInclude>
+    <ClInclude Include="mapper\kernel_ctx.h">
+      <Filter>Header Files\mapper</Filter>
+    </ClInclude>
+    <ClInclude Include="mapper\hook.hpp">
+      <Filter>Header Files\mapper</Filter>
+    </ClInclude>
+    <ClInclude Include="mapper\dbrequest.h">
+      <Filter>Header Files\mapper</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

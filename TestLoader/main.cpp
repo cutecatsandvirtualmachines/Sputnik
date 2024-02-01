@@ -6,9 +6,12 @@
 
 #include "debug.h"
 
-#include <libsputnik.hpp>
+#include <mapper/map_driver.h>
+#include <vdm.hpp>
 #include <Arch/Pte.h>
 #include <identity.hpp>
+
+SELibVdm vdm;
 
 std::wstring FindEFIPartition(void)
 {
@@ -265,6 +268,10 @@ int Main() {
 	}
 
 	sputnik::set_vmcall_key(0xbabababa); 
+	vdm.Init(0xbabababa, 0);
+
+	
+
 	DWORD64 cr3 = sputnik::current_dirbase();
 	DbgLog("CR3: 0x%llx", cr3);
 

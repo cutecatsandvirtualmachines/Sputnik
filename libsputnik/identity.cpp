@@ -3,7 +3,13 @@
 char* pIdentity = (char*)(identity::mapped_host_phys_pml << 39);
 unsigned long long pIdentityAsU64 = (unsigned long long)(identity::mapped_host_phys_pml << 39);
 
+bool bIdentityInit = false;
+
 int identity::Init(DWORD64 cr3) {
+	if (bIdentityInit) {
+		return true;
+	}
+
 	identity::IDENTITY_MAPPING* mapping = (identity::IDENTITY_MAPPING*)sputnik::malloc_locked_aligned(sizeof(identity::IDENTITY_MAPPING), 0x1000);
 	RtlZeroMemory(mapping, sizeof(*mapping));
 
@@ -41,10 +47,14 @@ int identity::Init(DWORD64 cr3) {
 	ppml4[identity::mapped_host_phys_pml].raw = mapping->pml4[0].raw;
 	sputnik::write_phys(cr3, (u64)ppml4, 0x1000);
 
+	bIdentityInit = true;
 	return true;
 }
 
 unsigned long long identity::phyToVirt(unsigned long long pa)
 {
+	if (!bIdentityInit) {
+		Init(sputnik::current_dirbase());
+	}
     return pIdentityAsU64 + pa;
 }
