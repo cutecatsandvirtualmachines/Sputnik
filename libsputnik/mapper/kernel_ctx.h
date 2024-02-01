@@ -54,6 +54,7 @@ namespace mapper
 		// allocate kernel pool of desired size and type
 		//
 		void* allocate_pool(std::size_t size, POOL_TYPE pool_type = NonPagedPool);
+		void* free_pool(void* p);
 		void* allocate_pool_db(std::size_t size);
 
 		//

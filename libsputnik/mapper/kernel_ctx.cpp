@@ -267,6 +267,20 @@ namespace mapper
 		);
 	}
 
+	void* kernel_ctx::free_pool(void* p)
+	{
+		static const auto ex_free_pool =
+			util::get_kernel_export(
+				"ntoskrnl.exe",
+				"ExFreePool"
+			);
+
+		return syscall<ExFreePool>(
+			ex_free_pool,
+			p
+		);
+	}
+
 	void* kernel_ctx::allocate_pool_db(std::size_t size)
 	{
 		volatile PVOID pOut = 0;

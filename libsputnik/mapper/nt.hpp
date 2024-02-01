@@ -106,6 +106,7 @@ typedef struct _MM_COPY_ADDRESS {
 
 using PEPROCESS = PVOID;
 using ExAllocatePool = PVOID(__stdcall*) (POOL_TYPE, SIZE_T);
+using ExFreePool = PVOID(__stdcall*) (void*);
 using ExAllocatePoolWithTag = PVOID(__stdcall*)(POOL_TYPE, SIZE_T, ULONG);
 using MmCopyMemory = NTSTATUS(__stdcall*)(PVOID, MM_COPY_ADDRESS, SIZE_T, ULONG, PSIZE_T);
 using DRIVER_INITIALIZE = NTSTATUS(__stdcall*)(UINT64, UINT64);

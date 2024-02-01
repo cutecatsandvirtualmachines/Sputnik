@@ -10,6 +10,9 @@
 #include <vdm.hpp>
 #include <Arch/Pte.h>
 #include <identity.hpp>
+#include <mapper/kernel_ctx.h>
+#include <data.h>
+#include <Setup.hpp>
 
 SELibVdm vdm;
 
@@ -272,15 +275,29 @@ int Main() {
 
 	ULONG64 driverBase = 0;
 
+	USERMODE_INFO uInfo = { 0 };
+	if (!setup::InitOffsets(uInfo.offsets)) {
+		DbgLog("Could not initialise offsets");
+		return false;
+	}
+	uInfo.loaderProcId = GetCurrentProcessId();
+	uInfo.spooferSeed = 0x4712abb3892;
+
 	auto status = mapper::map_driver(
 		"CheatDriver.sys",
 		0,
-		0,
+		(ULONG64)&uInfo,
 		true,
 		false,
 		&driverBase
 	);
 	DbgLog("Driver status: 0x%x", status);
+
+	if (!NT_SUCCESS(status)) {
+		mapper::kernel_ctx ctx;
+		ctx.free_pool((void*)driverBase);
+		return -1;
+	}
 
 	DWORD64 cr3 = sputnik::current_dirbase();
 	DbgLog("CR3: 0x%llx", cr3);
@@ -293,6 +310,8 @@ int Main() {
 	DbgLog("Write result: 0x%x", sputnik::write_virt((u64)&value, (u64)&valueWrite, sizeof(valueWrite), cr3));
 	DbgLog("0x0: 0x%llx", value);
 	DbgLog("0x0: 0x%llx", *(DWORD64*)identity::phyToVirt(0));
+
+	return 0;
 }
 
 int main() {
