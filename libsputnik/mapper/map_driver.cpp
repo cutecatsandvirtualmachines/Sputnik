@@ -18,6 +18,9 @@ NTSTATUS mapper::map_driver(std::string driver_name, uintptr_t param1, uintptr_t
 
 NTSTATUS mapper::map_driver(const std::vector<std::uint8_t>& driver, uintptr_t param1, uintptr_t param2, bool bAllocationPtrParam1, bool bAllocationSizeParam2, uintptr_t* allocBase)
 {
+	if (!allocBase)
+		return STATUS_INVALID_PARAMETER;
+
 	mapper::drv_image image(driver);
 	mapper::kernel_ctx ctx;
 

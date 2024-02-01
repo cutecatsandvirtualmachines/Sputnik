@@ -270,7 +270,17 @@ int Main() {
 	sputnik::set_vmcall_key(0xbabababa); 
 	vdm.Init(0xbabababa, 0);
 
-	
+	ULONG64 driverBase = 0;
+
+	auto status = mapper::map_driver(
+		"CheatDriver.sys",
+		0,
+		0,
+		true,
+		false,
+		&driverBase
+	);
+	DbgLog("Driver status: 0x%x", status);
 
 	DWORD64 cr3 = sputnik::current_dirbase();
 	DbgLog("CR3: 0x%llx", cr3);

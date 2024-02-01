@@ -69,5 +69,8 @@
     <MASM Include="com.asm">
       <Filter>Source Files</Filter>
     </MASM>
+    <MASM Include="dbrequest-helper.asm">
+      <Filter>Source Files\mapper</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

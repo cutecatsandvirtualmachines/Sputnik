@@ -29,6 +29,7 @@
     <MASM Include="com.asm">
       <FileType>Document</FileType>
     </MASM>
+    <MASM Include="dbrequest-helper.asm" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
