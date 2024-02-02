@@ -13,11 +13,13 @@ VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
 		return NULL;
 
 	EFI_IMAGE_NT_HEADERS64* ntHeaders = (EFI_IMAGE_NT_HEADERS64*)(base + dosHeaders->e_lfanew);
+	EFI_IMAGE_NT_HEADERS64* ntHeadersNew = (EFI_IMAGE_NT_HEADERS64*)(SputnikData->ModuleBase + dosHeaders->e_lfanew);
 	if (ntHeaders->Signature != EFI_IMAGE_NT_SIGNATURE)
 		return NULL;
 
 	MemCopy((UINT8*)SputnikData->ModuleBase, base, ntHeaders->OptionalHeader.SizeOfHeaders);
 	EFI_IMAGE_SECTION_HEADER* sections = (EFI_IMAGE_SECTION_HEADER*)((UINT8*)&ntHeaders->OptionalHeader + ntHeaders->FileHeader.SizeOfOptionalHeader);
+	UINT64 totSize = 0;
 	for (UINT32 i = 0; i < ntHeaders->FileHeader.NumberOfSections; ++i) 
 	{
 		EFI_IMAGE_SECTION_HEADER* section = &sections[i];
@@ -29,11 +31,13 @@ VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
 				base + section->PointerToRawData,
 				section->SizeOfRawData
 			);
+			totSize += section->SizeOfRawData;
 		}
 	}
 
+	RtlZeroMemory(base, totSize + ntHeaders->OptionalHeader.SizeOfHeaders);
 	EFI_IMAGE_EXPORT_DIRECTORY* ExportDir = (EFI_IMAGE_EXPORT_DIRECTORY*)(
-		SputnikData->ModuleBase + ntHeaders->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
+		SputnikData->ModuleBase + ntHeadersNew->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
 
 	UINT32* Address = (UINT32*)(SputnikData->ModuleBase + ExportDir->AddressOfFunctions);
 	UINT32* Name = (UINT32*)(SputnikData->ModuleBase + ExportDir->AddressOfNames);
@@ -65,7 +69,7 @@ VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
 	}
 
 	// Resolve relocations
-	EFI_IMAGE_DATA_DIRECTORY* baseRelocDir = &ntHeaders->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC];
+	EFI_IMAGE_DATA_DIRECTORY* baseRelocDir = &ntHeadersNew->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC];
 	if (baseRelocDir->VirtualAddress) 
 	{
 		EFI_IMAGE_BASE_RELOCATION* reloc = (EFI_IMAGE_BASE_RELOCATION*)(SputnikData->ModuleBase + baseRelocDir->VirtualAddress);
@@ -88,7 +92,7 @@ VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
 				case EFI_IMAGE_REL_BASED_DIR64: 
 				{
 					UINT64* rva = (UINT64*)(relocBase + offset);
-					*rva = (UINT64)(SputnikData->ModuleBase + (*rva - ntHeaders->OptionalHeader.ImageBase));
+					*rva = (UINT64)(SputnikData->ModuleBase + (*rva - ntHeadersNew->OptionalHeader.ImageBase));
 					break;
 				}
 				default:
@@ -101,7 +105,7 @@ VOID* MapModule(PSPUTNIK_T SputnikData, VOID* ImageBase)
 		}
 	}
 
-	return (VOID*)(SputnikData->ModuleBase + ntHeaders->OptionalHeader.AddressOfEntryPoint);
+	return (VOID*)(SputnikData->ModuleBase + ntHeadersNew->OptionalHeader.AddressOfEntryPoint);
 }
 
 VOID MakeSputnikData
