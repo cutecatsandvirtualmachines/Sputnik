@@ -107,7 +107,7 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 	}
 	case VMCALL_STORAGE_QUERY: {
 		auto cmd = GetCommand(vmcb, context->rdx);
-		if (cmd.storage.id > 127) {
+		if (cmd.storage.id > VMX_ROOT_STORAGE::MAX_STORAGE) {
 			vmcb->Rax() = VMX_ROOT_ERROR::INVALID_GUEST_PARAM;
 			break;
 		}

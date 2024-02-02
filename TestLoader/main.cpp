@@ -300,7 +300,7 @@ int Main() {
 		return -1;
 	}
 
-	DWORD64 callback = sputnik::storage_get<DWORD64>(0);
+	DWORD64 callback = sputnik::storage_get<DWORD64>(VMX_ROOT_STORAGE::CALLBACK_ADDRESS);
 	DbgLog("Callback: 0x%llx", callback);
 
 	DWORD64 cr3 = sputnik::current_dirbase();
