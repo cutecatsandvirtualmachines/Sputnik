@@ -270,7 +270,7 @@ int Main() {
 		MoveFileW(bootmgfwBackupPath.c_str(), bootmgfwPath.c_str());
 	}
 
-	sputnik::set_vmcall_key(0xbabababa); 
+	sputnik::set_vmcall_key(0xbabababa);
 	vdm.Init(0xbabababa, 0);
 
 	ULONG64 driverBase = 0;
@@ -294,17 +294,26 @@ int Main() {
 	);
 	DbgLog("Driver status: 0x%x", status);
 
+	mapper::kernel_ctx ctx;
 	if (!NT_SUCCESS(status)) {
-		mapper::kernel_ctx ctx;
 		ctx.free_pool((void*)driverBase);
 		return -1;
 	}
 
-	DWORD64 storageData = sputnik::storage_get<DWORD64>(0);
-	DbgLog("Storage data: 0x%llx", storageData);
+	DWORD64 callback = sputnik::storage_get<DWORD64>(0);
+	DbgLog("Callback: 0x%llx", callback);
 
 	DWORD64 cr3 = sputnik::current_dirbase();
 	DbgLog("CR3: 0x%llx", cr3);
+
+	vdm.Init(callback);
+
+	KERNEL_REQUEST req = { 0 };
+	req.instructionID = INST_REGISTER_SCORE_NOTIFY;
+	NTSTATUS ntStatus = -1;
+	BOOLEAN bSuccess = vdm.CallKernelFunction(&ntStatus, callback, &req);
+	DbgLog("Callback invoke test: 0x%x - 0x%x", bSuccess, ntStatus);
+	ctx.free_pool((void*)driverBase);
 
 	auto res = identity::Init(cr3);
 	DbgLog("Identity setup: %d", res);

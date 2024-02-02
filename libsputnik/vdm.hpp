@@ -64,12 +64,14 @@ public:
 
 	__forceinline BOOLEAN ReadMemory(ULONG64 Source, PVOID Destination, SIZE_T NumberOfBytes, ULONG64 cr3 = ~0ull)
 	{
-		return sputnik::read_virt((ULONG64)Destination, Source, NumberOfBytes, cr3 != ~0ull ? cr3 : _gameCr3) == 0;
+		auto status = sputnik::read_virt((ULONG64)Destination, Source, NumberOfBytes, cr3 != ~0ull ? cr3 : _gameCr3);
+		return status == VMX_ROOT_ERROR::SUCCESS;
 	}
 
 	__forceinline BOOLEAN WriteMemory(ULONG64 Destination, PVOID Source, SIZE_T NumberOfBytes, ULONG64 cr3 = ~0ull)
 	{
-		return sputnik::write_virt(Destination, (ULONG64)Source, NumberOfBytes, cr3 != ~0ull ? cr3 : _gameCr3) == 0;
+		auto status = sputnik::write_virt(Destination, (ULONG64)Source, NumberOfBytes, cr3 != ~0ull ? cr3 : _gameCr3);
+		return status == VMX_ROOT_ERROR::SUCCESS;
 	}
 
 	__forceinline BOOLEAN CallbackInvoke(PVOID pContext) {
@@ -107,7 +109,7 @@ public:
 			return false;
 		}
 
-		const auto NtAddAtom = reinterpret_cast<void*>(GetProcAddress(ntdll, "NtAddAtom"));
+		const auto NtAddAtom = reinterpret_cast<void*>(GetProcAddress(ntdll, "NtRollbackEnlistment"));
 		if (!NtAddAtom)
 		{
 			return false;
@@ -126,7 +128,7 @@ public:
 		uint8_t original_kernel_function[sizeof(kernel_injected_jmp)];
 		*(ULONG64*)&kernel_injected_jmp[33] = kernel_function_address;
 
-		static ULONG64 kernel_NtAddAtom = GetKernelModuleExport("NtAddAtom");
+		static ULONG64 kernel_NtAddAtom = GetKernelModuleExport("NtRollbackEnlistment");
 		if (!kernel_NtAddAtom) {
 			return false;
 		}

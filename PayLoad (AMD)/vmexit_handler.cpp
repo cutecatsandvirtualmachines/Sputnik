@@ -59,23 +59,31 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 	}
 	case VMCALL_READ_VIRT: {
 		auto cmd = GetCommand(vmcb, context->rdx);
-		if (!cmd.read.pOutBuf || !context->r8) {
+		DWORD64 cr3 = context->r8;
+		if (!cr3)
+			cr3 = vmcb->Cr3();
+
+		if (!cmd.read.pOutBuf) {
 			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
 			break;
 		}
 
-		vmcb->Rax() = mm::copy_guest_virt(context->r8, (u64)cmd.read.pTarget, vmcb->Cr3(), (u64)cmd.read.pOutBuf, cmd.read.length);
+		vmcb->Rax() = mm::copy_guest_virt(cr3, (u64)cmd.read.pTarget, vmcb->Cr3(), (u64)cmd.read.pOutBuf, cmd.read.length);
 
 		break;
 	}
 	case VMCALL_WRITE_VIRT: {
 		auto cmd = GetCommand(vmcb, context->rdx);
-		if (!cmd.write.pInBuf || !context->r8) {
+		DWORD64 cr3 = context->r8;
+		if (!cr3)
+			cr3 = vmcb->Cr3();
+
+		if (!cmd.write.pInBuf) {
 			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
 			break;
 		}
 
-		vmcb->Rax() = mm::copy_guest_virt(vmcb->Cr3(), (u64)cmd.write.pInBuf, context->r8, (u64)cmd.write.pTarget, cmd.write.length);
+		vmcb->Rax() = mm::copy_guest_virt(vmcb->Cr3(), (u64)cmd.write.pInBuf, cr3, (u64)cmd.write.pTarget, cmd.write.length);
 
 		break;
 	}
