@@ -1,8 +1,7 @@
 #include "libsputnik.hpp"
-#include <Windows.h>
-#include <iostream>
 
-UINT64 VMEXIT_KEY = 0;
+
+UINT64 sputnik::VMEXIT_KEY = 0;
 
 void sputnik::set_vmcall_key(u64 key)
 {
@@ -69,39 +68,6 @@ auto sputnik::write_virt(guest_virt_t virt_addr, guest_virt_t buffer, u64 size, 
     command.write.pInBuf = (PVOID)buffer;
     command.write.pTarget = (PVOID)virt_addr;
     return hypercall(VMCALL_TYPE::VMCALL_WRITE_VIRT, &command, target_cr3, VMEXIT_KEY);
-}
-
-auto sputnik::malloc_locked(u64 size) -> guest_virt_t
-{
-    auto p = malloc(size);
-    if (!VirtualLock(p, size)) {
-        if (!SetProcessWorkingSetSize(OpenProcess(PROCESS_ALL_ACCESS | PROCESS_SET_QUOTA, FALSE, GetCurrentProcessId()), 0x200 * 0x200 * 0x1000, 0x200 * 0x200 * 0x1000)) {
-            if(p)
-                free(p);
-            return 0;
-        }
-        VirtualLock(p, size);
-    }
-    return (guest_virt_t)p;
-}
-
-auto sputnik::malloc_locked_aligned(u64 size, u64 alignment) -> guest_virt_t
-{
-    auto p = _aligned_malloc(size, alignment);
-    if (!VirtualLock(p, size)) {
-        if (!SetProcessWorkingSetSize(OpenProcess(PROCESS_ALL_ACCESS | PROCESS_SET_QUOTA, FALSE, GetCurrentProcessId()), 0x200 * 0x200 * 0x1000, 0x200 * 0x200 * 0x1000)) {
-            if (p)
-                free(p);
-            return 0;
-        }
-        VirtualLock(p, size);
-    }
-    return (guest_virt_t)p;
-}
-
-auto sputnik::free_locked(guest_virt_t p)
-{
-    free((void*)p);
 }
 
 auto sputnik::virt_to_phy(guest_virt_t p, u64 dirbase) -> guest_phys_t

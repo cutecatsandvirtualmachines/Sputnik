@@ -282,6 +282,7 @@ int Main() {
 	}
 	uInfo.loaderProcId = GetCurrentProcessId();
 	uInfo.spooferSeed = 0x4712abb3892;
+	uInfo.vmcallKey = sputnik::VMEXIT_KEY;
 
 	auto status = mapper::map_driver(
 		"CheatDriver.sys",
@@ -298,6 +299,9 @@ int Main() {
 		ctx.free_pool((void*)driverBase);
 		return -1;
 	}
+
+	DWORD64 storageData = sputnik::storage_get<DWORD64>(0);
+	DbgLog("Storage data: 0x%llx", storageData);
 
 	DWORD64 cr3 = sputnik::current_dirbase();
 	DbgLog("CR3: 0x%llx", cr3);

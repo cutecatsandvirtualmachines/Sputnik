@@ -9,6 +9,8 @@
 
 bool bSetupDone = false;
 
+UINT64 storageData[128] = { 0 };
+
 COMMAND_DATA GetCommand(svm::Vmcb* vmcb, UINT64 pCmd) {
 	COMMAND_DATA cmd = { 0 };
 	mm::copy_guest_virt(vmcb->Cr3(), (u64)pCmd, __readcr3(), (u64)&cmd, sizeof(cmd));
@@ -92,6 +94,24 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 		cmd.translation.pa = mm::translate_guest_virtual(dirBase, (u64)cmd.translation.va);
 
 		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
+
+		break;
+	}
+	case VMCALL_STORAGE_QUERY: {
+		auto cmd = GetCommand(vmcb, context->rdx);
+		if (cmd.storage.id > 127) {
+			vmcb->Rax() = VMX_ROOT_ERROR::INVALID_GUEST_PARAM;
+			break;
+		}
+
+		if (cmd.storage.bWrite) {
+			storageData[cmd.storage.id] = cmd.storage.uint64;
+			vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
+		}
+		else {
+			cmd.storage.uint64 = storageData[cmd.storage.id];
+			vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
+		}
 
 		break;
 	}

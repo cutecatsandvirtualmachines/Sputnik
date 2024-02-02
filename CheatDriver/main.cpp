@@ -3,6 +3,8 @@
 
 #include <threading.h>
 
+#include <libsputnik.hpp>
+
 #pragma warning (disable:4302)
 #pragma warning (disable:4311)
 
@@ -38,6 +40,9 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObj, PUNICODE_STRING pRegistryPath) {
     }
 
     identity::Init();
+
+    sputnik::set_vmcall_key(SKLib::pUserInfo->vmcallKey);
+    sputnik::storage_set(0, 0xdeadbeef);
 
     paging::RestoreMapPage();
 
