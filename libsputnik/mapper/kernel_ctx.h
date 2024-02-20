@@ -60,7 +60,7 @@ namespace mapper
 		//
 		// allocate kernel pool of size, pool tag, and type
 		//
-		void* allocate_pool(std::size_t size, ULONG pool_tag = 'MEME', POOL_TYPE pool_type = NonPagedPool);
+		void* allocate_pool(std::size_t size, ULONG pool_tag = '\x0\x0\x0\x0', POOL_TYPE pool_type = NonPagedPool);
 
 		//
 		// read kernel memory with RtlCopyMemory

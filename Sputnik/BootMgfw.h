@@ -1,8 +1,8 @@
 #pragma once
 #include "WinLoad.h"
 
-#define START_BOOT_APPLICATION_SIG "\x48\x8B\xC4\x48\x89\x58\x20\x44\x89\x40\x18\x48\x89\x50\x10\x48\x89\x48\x08\x55\x56\x57\x41\x54"
-#define START_BOOT_APPLICATION_MASK "xxxxxxxxxxxxxxxxxxxxxxxx"
+#define START_BOOT_APPLICATION_SIG "\x48\x8B\xC4\x48\x89\x58\x20\x44\x89\x40\x18\x48\x89\x50\x10\x48\x89\x48\x08\x55\x56\x57\x41\x54\x41\x55\x41\x56\x41\x57\x48\x8D\x68\x00\x48\x81\xEC\x00\x00\x00\x00\x48\x8B\xF9"
+#define START_BOOT_APPLICATION_MASK "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx?xxx????xxx"
 static_assert(sizeof(START_BOOT_APPLICATION_SIG) == sizeof(START_BOOT_APPLICATION_MASK), "signature and mask size's dont match...");
 
 #define WINDOWS_BOOTMGFW_PATH L"\\efi\\microsoft\\boot\\bootmgfw.efi"

@@ -10,7 +10,7 @@ NTSTATUS mapper::map_driver(std::string driver_name, uintptr_t param1, uintptr_t
 	util::open_binary_file(driver_name.c_str(), drv_buffer);
 	if (!drv_buffer.size())
 	{
-		std::perror("[-] invalid drv_buffer size\n");
+		std::printf("[-] invalid drv_buffer size\n");
 		return -1;
 	}
 	return map_driver(drv_buffer, param1, param2, bAllocationPtrParam1, bAllocationSizeParam2, allocBase);

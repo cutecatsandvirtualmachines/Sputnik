@@ -273,8 +273,16 @@ int Main() {
 	sputnik::set_vmcall_key(0xbabababa);
 	vdm.Init(0xbabababa, 0);
 
-	ULONG64 driverBase = 0;
+	DWORD64 cr3 = sputnik::current_dirbase();
+	DbgLog("CR3: 0x%llx", cr3);
+	DWORD64 ncr3 = sputnik::current_ept_base();
+	DbgLog("nCR3: 0x%llx", ncr3);
 
+	auto res = identity::Init(cr3);
+	DbgLog("Identity setup: %d", res);
+
+	ULONG64 driverBase = 0;
+	
 	USERMODE_INFO uInfo = { 0 };
 	if (!setup::InitOffsets(uInfo.offsets)) {
 		DbgLog("Could not initialise offsets");
@@ -283,7 +291,7 @@ int Main() {
 	uInfo.loaderProcId = GetCurrentProcessId();
 	uInfo.spooferSeed = 0x4712abb3892;
 	uInfo.vmcallKey = sputnik::VMEXIT_KEY;
-
+	
 	auto status = mapper::map_driver(
 		"CheatDriver.sys",
 		0,
@@ -293,31 +301,25 @@ int Main() {
 		&driverBase
 	);
 	DbgLog("Driver status: 0x%x", status);
-
+	
 	mapper::kernel_ctx ctx;
 	if (!NT_SUCCESS(status)) {
 		ctx.free_pool((void*)driverBase);
 		return -1;
 	}
-
+	
 	DWORD64 callback = sputnik::storage_get<DWORD64>(VMX_ROOT_STORAGE::CALLBACK_ADDRESS);
 	DbgLog("Callback: 0x%llx", callback);
-
-	DWORD64 cr3 = sputnik::current_dirbase();
-	DbgLog("CR3: 0x%llx", cr3);
-
+	
 	vdm.Init(callback);
-
+	
 	KERNEL_REQUEST req = { 0 };
 	req.instructionID = INST_REGISTER_SCORE_NOTIFY;
 	NTSTATUS ntStatus = -1;
 	BOOLEAN bSuccess = vdm.CallKernelFunction(&ntStatus, callback, &req);
 	DbgLog("Callback invoke test: 0x%x - 0x%x", bSuccess, ntStatus);
-	ctx.free_pool((void*)driverBase);
-
-	auto res = identity::Init(cr3);
-	DbgLog("Identity setup: %d", res);
-
+	//ctx.free_pool((void*)driverBase);
+	
 	DWORD64 value = 0xbeefbeef;
 	DWORD64 valueWrite = 0xdeaddead;
 	DbgLog("Write result: 0x%x", sputnik::write_virt((u64)&value, (u64)&valueWrite, sizeof(valueWrite), cr3));

@@ -217,6 +217,7 @@ namespace mm
     auto map_page(host_phys_t phys_addr, map_type_t map_type = map_type_t::map_src) -> u64;
 
     auto translate(host_virt_t host_virt) -> u64;
+    auto get_npte(guest_phys_t phys_addr) -> pnpt_pte;
     auto translate_guest_physical(guest_phys_t guest_phys, map_type_t map_type = map_type_t::map_src) -> u64;
     auto translate_guest_virtual(guest_phys_t dirbase, guest_virt_t guest_virt, map_type_t map_type = map_type_t::map_src) -> u64;
 

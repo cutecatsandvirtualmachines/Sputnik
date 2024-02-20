@@ -22,6 +22,18 @@ auto sputnik::current_dirbase()->guest_phys_t
     return command.cr3.value;
 }
 
+auto sputnik::root_dirbase() -> guest_phys_t
+{
+    COMMAND_DATA command = { 0 };
+    auto result = hypercall(VMCALL_TYPE::VMCALL_GET_CR3_ROOT, &command, 0, VMEXIT_KEY);
+
+    if (result != VMX_ROOT_ERROR::SUCCESS) {
+        return {};
+    }
+
+    return command.cr3.value;
+}
+
 auto sputnik::current_ept_base() -> guest_phys_t
 {
     COMMAND_DATA command = { 0 };
@@ -32,6 +44,20 @@ auto sputnik::current_ept_base() -> guest_phys_t
     }
 
     return command.cr3.value;
+}
+
+VMX_ROOT_ERROR sputnik::set_ept_base(guest_phys_t nCr3) {
+    COMMAND_DATA command = { 0 };
+    command.cr3.value = nCr3;
+    auto result = hypercall(VMCALL_TYPE::VMCALL_SET_EPT_BASE, &command, 0, VMEXIT_KEY);
+    return result;
+}
+
+VMX_ROOT_ERROR sputnik::set_ept_handler(guest_virt_t handler) {
+    COMMAND_DATA command = { 0 };
+    command.handler = (PVOID)handler;
+    auto result = hypercall(VMCALL_TYPE::VMCALL_REGISTER_EPT_HANDLER, &command, 0, VMEXIT_KEY);
+    return result;
 }
 
 auto sputnik::read_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size) -> VMX_ROOT_ERROR

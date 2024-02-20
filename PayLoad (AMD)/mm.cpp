@@ -171,7 +171,7 @@ auto mm::translate_guest_virtual(guest_phys_t dirbase, guest_virt_t guest_virt, 
 
 		// handle 1gb pages...
 		if (pdpt[virt_addr.pdpt_index].large_page)
-			return (pdpt[virt_addr.pdpt_index].pfn << 12) + virt_addr.offset_1gb;
+			return (pdpt[virt_addr.pdpt_index].pfn << 30) + virt_addr.offset_1gb;
 
 		const auto pd =
 			reinterpret_cast<pde*>(map_guest_phys(
@@ -182,7 +182,7 @@ auto mm::translate_guest_virtual(guest_phys_t dirbase, guest_virt_t guest_virt, 
 
 		// handle 2mb pages...
 		if (pd[virt_addr.pd_index].large_page)
-			return (pd[virt_addr.pd_index].pfn << 12) + virt_addr.offset_2mb;
+			return (pd[virt_addr.pd_index].pfn << 21) + virt_addr.offset_2mb;
 
 		const auto pt =
 			reinterpret_cast<pte*>(map_guest_phys(
@@ -198,27 +198,68 @@ auto mm::translate_guest_virtual(guest_phys_t dirbase, guest_virt_t guest_virt, 
 	}
 }
 
+auto mm::get_npte(guest_phys_t phys_addr) -> pnpt_pte {
+	__try {
+		phys_addr_t guest_phys{ phys_addr };
+		const auto vmcb = svm::get_vmcb();
+
+		const auto npt_pml4 =
+			reinterpret_cast<pnpt_pml4e>(
+				map_page(vmcb->NestedPageTableCr3()));
+
+		if (!npt_pml4[guest_phys.pml4_index].present)
+			return {};
+
+		const auto npt_pdpt =
+			reinterpret_cast<pnpt_pdpte>(
+				map_page(npt_pml4[guest_phys.pml4_index].pfn << 12));
+
+		if (!npt_pdpt[guest_phys.pdpt_index].present)
+			return {};
+
+		const auto npt_pd =
+			reinterpret_cast<pnpt_pde>(
+				map_page(npt_pdpt[guest_phys.pdpt_index].pfn << 12));
+
+		if (!npt_pd[guest_phys.pd_index].present)
+			return { 0 };
+
+		// handle 2mb pages...
+		if (reinterpret_cast<pnpt_pde_2mb>(npt_pd)[guest_phys.pd_index].large_page)
+			return { 0 };
+
+		const auto npt_pt =
+			reinterpret_cast<pnpt_pte>(
+				map_page(npt_pd[guest_phys.pd_index].pfn << 12));
+
+		return &npt_pt[guest_phys.pt_index];
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return { 0 };
+	}
+}
+
 auto mm::translate_guest_physical(guest_phys_t phys_addr, map_type_t map_type) -> u64
 {
 	__try {
 		phys_addr_t guest_phys{ phys_addr };
 		const auto vmcb = svm::get_vmcb();
 
-		const auto npt_pml4 = 
+		const auto npt_pml4 =
 			reinterpret_cast<pnpt_pml4e>(
 				map_page(vmcb->NestedPageTableCr3(), map_type));
 
 		if (!npt_pml4[guest_phys.pml4_index].present)
 			return {};
 
-		const auto npt_pdpt = 
+		const auto npt_pdpt =
 			reinterpret_cast<pnpt_pdpte>(
 				map_page(npt_pml4[guest_phys.pml4_index].pfn << 12, map_type));
 
 		if (!npt_pdpt[guest_phys.pdpt_index].present)
 			return {};
 
-		const auto npt_pd = 
+		const auto npt_pd =
 			reinterpret_cast<pnpt_pde>(
 				map_page(npt_pdpt[guest_phys.pdpt_index].pfn << 12, map_type));
 

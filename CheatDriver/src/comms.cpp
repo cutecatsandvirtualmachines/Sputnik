@@ -9,6 +9,7 @@
 #include <defender.h>
 #include <spoof.h>
 #include <timing.h>
+#include <libsputnik.hpp>
 
 #pragma warning (disable:4302)
 
@@ -861,6 +862,20 @@ ObOpenObjectByPointerHook(
 	return ntStatus;
 }
 
+NTSTATUS SetEPTCache() {
+	DWORD dwCore = CPU::GetCPUIndex();
+
+	DbgMsgForce("[%d] nCr3: 0x%llx", dwCore, vmm::vGuestStates[0].eptState.nCR3.Flags);
+
+	sputnik::set_ept_base(vmm::vGuestStates[0].eptState.nCR3.Flags);
+
+	return STATUS_SUCCESS;
+}
+
+BOOLEAN EptHandler(UINT64 pa) {
+	return FALSE;
+}
+
 BOOLEAN comms::Init()
 {
 	if (bCommsInit)
@@ -939,18 +954,54 @@ BOOLEAN comms::Init()
 	}
 #endif
 
+	vmm::Init();
+
+	PVOID pPML4 = paging::CopyPML4Mapping();
+	CR3 newCR3 = { 0 };
+	newCR3.Flags = __readcr3();
+	newCR3.AddressOfPageDirectory = Memory::VirtToPhy(pPML4) >> 12;
+
+	vmm::hostCR3 = newCR3;
+
+	identity::PhysicalAccess phy;
+
+	CR3 nCr3 = { 0 };
+	CR3 Cr3Host = { 0 };
+	nCr3.Flags = sputnik::current_ept_base();
+	Cr3Host.Flags = sputnik::root_dirbase();
+	DbgMsgForce("nCR3: 0x%llx", nCr3.AddressOfPageDirectory * PAGE_SIZE);
+
+	VIRT_ADD_MAP virtAddMap = { 0 };
+	virtAddMap.Flags = (DWORD64)winternl::pDriverBase;
+
+	auto bMapSuccess = paging::MapRegion((PPML4T)phy.phys2virt(vmm::hostCR3.AddressOfPageDirectory * PAGE_SIZE), winternl::pDriverBase, winternl::szDriver);
+	DbgMsgForce("Map success: 0x%x - 0x%llx", bMapSuccess, winternl::szDriver);
+
+	auto writeRes = sputnik::write_phys((Cr3Host.AddressOfPageDirectory * PAGE_SIZE) + (virtAddMap.Level4 * 8), (DWORD64)pPML4 + (virtAddMap.Level4 * 8), 8);
+	DbgMsgForce("Write success: 0x%x - 0x%llx", writeRes, (Cr3Host.AddressOfPageDirectory * PAGE_SIZE) + (virtAddMap.Level4 * 8));
+
+	PROCESSOR_RUN_INFO procInfo;
+	procInfo.Flags = ~0ull;
+	procInfo.bHighIrql = FALSE;
+
+	if (!NT_SUCCESS(CPU::RunOnAllCPUs(SetEPTCache, procInfo)))
+		return false;
+
+	auto bSetHandlerSuccess = sputnik::set_ept_handler((sputnik::guest_virt_t)EptHandler);
+	DbgMsgForce("Handler set success: 0x%x - 0x%llx", bSetHandlerSuccess, EptHandler);
+
 	//HOOK_SECONDARY_INFO hkSecondaryInfo = { 0 };
 	//PAGE_PERMISSIONS pgPermissions = { 0 };
 	//
 	//hkSecondaryInfo.pOrigFn = (PVOID*)&pPspInsertThreadOrig;
-	//if (!EPT::Hook((PVOID)winternl::PspInsertThread, PspInsertThread, hkSecondaryInfo, pgPermissions)) {
+	//if (!EPT::Hook((PVOID)winternl::PspInsertThread, PspInsertThread, hkSecondaryInfo, pgPermissions, false, nullptr)) {
 	//	DbgMsg("[DRIVER] Failed hooking PspInsertThread");
 	//	return false;
 	//}
 	//else {
 	//	DbgMsg("[DRIVER] Hooked PspInsertThread");
 	//}
-	//
+	
 	//hkSecondaryInfo.pOrigFn = (PVOID*)&pPspInsertProcessOrig;
 	//if (!EPT::Hook((PVOID)winternl::PspInsertProcess, PspInsertProcess, hkSecondaryInfo, pgPermissions)) {
 	//	DbgMsg("[DRIVER] Failed hooking PspInsertProcess");

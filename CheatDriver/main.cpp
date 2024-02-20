@@ -42,9 +42,13 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObj, PUNICODE_STRING pRegistryPath) {
     identity::Init();
 
     sputnik::set_vmcall_key(SKLib::pUserInfo->vmcallKey);
+    DbgMsgForce("[VMCALL] Key set to: 0x%llx", SKLib::pUserInfo->vmcallKey);
     sputnik::storage_set(0, comms::Entry);
 
-    comms::Init();
+    if (!comms::Init()) {
+        DbgMsg("[COMMS] Failed init!");
+        return SKLIB_LOAD_FAILED;
+    }
 
     paging::RestoreMapPage();
 

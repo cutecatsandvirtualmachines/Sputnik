@@ -6,10 +6,16 @@
 #include <communication.hpp>
 #include <SELib/Vmcall.h>
 #include <SELib/ia32.h>
+#include <SELib/Ept.h>
+#include <SELib/hvgdk.h>
 
 bool bSetupDone = false;
+bool bFirstExitSetupDone = false;
 
 UINT64 storageData[128] = { 0 };
+
+typedef BOOLEAN (*fnEptHandler) (UINT64 GuestPhysicalAddr);
+fnEptHandler pEptHandler = 0;
 
 COMMAND_DATA GetCommand(svm::Vmcb* vmcb, UINT64 pCmd) {
 	COMMAND_DATA cmd = { 0 };
@@ -29,10 +35,31 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 
 		break;
 	}
+	case VMCALL_GET_CR3_ROOT: {
+		COMMAND_DATA cmd = { 0 };
+		cmd.cr3.value = __readcr3();
+		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
+
+		break;
+	}
 	case VMCALL_GET_EPT_BASE: {
 		COMMAND_DATA cmd = { 0 };
 		cmd.cr3.value = vmcb->NestedPageTableCr3();
 		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
+		break;
+	}
+	case VMCALL_SET_EPT_BASE: {
+		auto cmd = GetCommand(vmcb, context->rdx);
+		if (!cmd.cr3.value) {
+			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
+			break;
+		}
+
+		vmcb->NestedPageTableCr3() = cmd.cr3.value;
+		vmcb->ControlArea.TlbControl.layout.TlbControl = 0x1;
+		vmcb->ControlArea.GMETEnable = false;
+		
+		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
 		break;
 	}
 	case VMCALL_READ_PHY: {
@@ -114,12 +141,24 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 
 		if (cmd.storage.bWrite) {
 			storageData[cmd.storage.id] = cmd.storage.uint64;
-			vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
+		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
 		}
 		else {
 			cmd.storage.uint64 = storageData[cmd.storage.id];
 			vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
 		}
+
+		break;
+	}
+	case VMCALL_REGISTER_EPT_HANDLER: {
+		auto cmd = GetCommand(vmcb, context->rdx);
+		if (!cmd.handler) {
+			vmcb->Rax() = VMX_ROOT_ERROR::INVALID_GUEST_PARAM;
+			break;
+		}
+
+		pEptHandler = (fnEptHandler)cmd.handler;
+		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
 
 		break;
 	}
@@ -140,6 +179,7 @@ void RootSetup() {
 		svm::sputnik_context.record_base = (u64)pe::FindPE();
 
 		auto mmInit = mm::init();
+		CPU::Init();
 	}
 }
 
@@ -156,6 +196,7 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 	const auto vmcb = svm::get_vmcb();
 	bool bIncRip = false;
 	bool bHandledExit = false;
+	vmcb->ControlArea.TlbControl.layout.TlbControl = 0;
 
 	switch (vmcb->ControlArea.ExitCode) {
 	case svm::SvmExitCode::VMEXIT_CPUID: {
@@ -167,19 +208,23 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 		break;
 	}
 	default: {
+		if (pEptHandler) {
+			bHandledExit = pEptHandler(vmcb->ControlArea.ExitInfo2);
+		}
 		break;
 	}
 	}
 
-	__lidt(&origIdt);
 	if (!bHandledExit) {
+		__lidt(&origIdt);
 		return reinterpret_cast<svm::vcpu_run_t>(
 			reinterpret_cast<u64>(&vmexit_handler) -
 			svm::sputnik_context.vcpu_run_rva)(unknown, unknown2, context);
 	}
 
-	if(bIncRip) 
+	if(bIncRip)
 		vmcb->StateSaveArea.Rip = vmcb->ControlArea.NextRip;
 
+	__lidt(&origIdt);
 	return reinterpret_cast<svm::pgs_base_struct>(__readgsqword(0));
 }

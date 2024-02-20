@@ -42,7 +42,13 @@ namespace sputnik
 
 	auto current_dirbase() -> guest_phys_t;
 
+	auto root_dirbase() -> guest_phys_t;
+
 	auto current_ept_base() -> guest_phys_t;
+
+	VMX_ROOT_ERROR set_ept_base(guest_phys_t nCr3);
+
+	VMX_ROOT_ERROR set_ept_handler(guest_virt_t handler);
 
 	auto read_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size) -> VMX_ROOT_ERROR;
 
