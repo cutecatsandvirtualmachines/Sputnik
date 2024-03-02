@@ -65,6 +65,7 @@ public:
 	__forceinline BOOLEAN ReadMemory(ULONG64 Source, PVOID Destination, SIZE_T NumberOfBytes, ULONG64 cr3 = ~0ull)
 	{
 		auto status = sputnik::read_virt((ULONG64)Destination, Source, NumberOfBytes, cr3 != ~0ull ? cr3 : _gameCr3);
+		DbgLog("Read status: 0x%llx - %p", status, Source);
 		return status == VMX_ROOT_ERROR::SUCCESS;
 	}
 
@@ -109,36 +110,9 @@ public:
 			return false;
 		}
 
-		const auto NtAddAtom = reinterpret_cast<void*>(GetProcAddress(ntdll, "NtRollbackEnlistment"));
+		const auto NtAddAtom = reinterpret_cast<void*>(GetProcAddress(ntdll, "NtLockVirtualMemory"));
 		if (!NtAddAtom)
 		{
-			return false;
-		}
-
-		uint8_t kernel_injected_jmp[] = {
-			0x48, 0x83, 0xec, 0x38,										//sub rsp, 38h
-			0x48, 0xc7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00,	0x00,		//mov qword ptr[rsp + 30h], 0h
-			0x48, 0xc7, 0x44, 0x24, 0x28, 0x00, 0x00, 0x00,	0x00,		//mov qword ptr[rsp + 28h], 0h
-			0x48, 0xc7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00,	0x00,		//mov qword ptr[rsp + 20h], 0h
-			0x48, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //movabs rax, 0
-			0xff, 0xd0,													//call rax
-			0x48, 0x83, 0xc4, 0x38,										//add rsp, 38h
-			0xc3														//ret
-		};
-		uint8_t original_kernel_function[sizeof(kernel_injected_jmp)];
-		*(ULONG64*)&kernel_injected_jmp[33] = kernel_function_address;
-
-		static ULONG64 kernel_NtAddAtom = GetKernelModuleExport("NtRollbackEnlistment");
-		if (!kernel_NtAddAtom) {
-			return false;
-		}
-
-		if (!ReadMemory(kernel_NtAddAtom, &original_kernel_function, sizeof(kernel_injected_jmp), TARGET_CR3_SYSTEM)) {
-			return false;
-		}
-
-		// Overwrite the pointer with kernel_function_address
-		if (!WriteMemory(kernel_NtAddAtom, &kernel_injected_jmp, sizeof(kernel_injected_jmp), TARGET_CR3_SYSTEM)) {
 			return false;
 		}
 
@@ -156,8 +130,7 @@ public:
 			Function(arguments...);
 		}
 
-		// Restore the pointer/jmp
-		return WriteMemory(kernel_NtAddAtom, original_kernel_function, sizeof(kernel_injected_jmp), TARGET_CR3_SYSTEM);
+		return true;
 	}
 
 	__forceinline ULONG64 GetKernelModuleExport(const std::string& function_name) {

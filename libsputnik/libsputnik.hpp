@@ -46,9 +46,15 @@ namespace sputnik
 
 	auto current_ept_base() -> guest_phys_t;
 
+	auto vmcb() -> host_phys_t;
+
 	VMX_ROOT_ERROR set_ept_base(guest_phys_t nCr3);
 
-	VMX_ROOT_ERROR set_ept_handler(guest_virt_t handler);
+	void set_ept_handler(guest_virt_t handler);
+
+	VMX_ROOT_ERROR disable_ept();
+
+	VMX_ROOT_ERROR enable_ept();
 
 	auto read_phys(guest_phys_t phys_addr, guest_virt_t buffer, u64 size) -> VMX_ROOT_ERROR;
 

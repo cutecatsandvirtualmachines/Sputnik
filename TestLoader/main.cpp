@@ -281,39 +281,49 @@ int Main() {
 	auto res = identity::Init(cr3);
 	DbgLog("Identity setup: %d", res);
 
-	ULONG64 driverBase = 0;
-	
-	USERMODE_INFO uInfo = { 0 };
-	if (!setup::InitOffsets(uInfo.offsets)) {
-		DbgLog("Could not initialise offsets");
-		return false;
+	DWORD64 callback = sputnik::storage_get<DWORD64>(VMX_ROOT_STORAGE::CALLBACK_ADDRESS);
+	if (!callback) {
+		ULONG64 driverBase = 0;
+
+		USERMODE_INFO uInfo = { 0 };
+		if (!setup::InitOffsets(uInfo.offsets)) {
+			DbgLog("Could not initialise offsets");
+			return false;
+		}
+		uInfo.loaderProcId = GetCurrentProcessId();
+		uInfo.spooferSeed = 0x4712abb3892;
+		uInfo.vmcallKey = sputnik::VMEXIT_KEY;
+
+		auto status = mapper::map_driver(
+			"CheatDriver.sys",
+			0,
+			(ULONG64)&uInfo,
+			true,
+			false,
+			&driverBase
+		);
+		DbgLog("Driver status: 0x%x", status);
+
+		if (!NT_SUCCESS(status)) {
+			mapper::kernel_ctx ctx;
+			ctx.free_pool((void*)driverBase);
+			return -1;
+		}
 	}
-	uInfo.loaderProcId = GetCurrentProcessId();
-	uInfo.spooferSeed = 0x4712abb3892;
-	uInfo.vmcallKey = sputnik::VMEXIT_KEY;
 	
-	auto status = mapper::map_driver(
-		"CheatDriver.sys",
-		0,
-		(ULONG64)&uInfo,
-		true,
-		false,
-		&driverBase
-	);
-	DbgLog("Driver status: 0x%x", status);
+	callback = sputnik::storage_get<DWORD64>(VMX_ROOT_STORAGE::CALLBACK_ADDRESS);
+	DbgLog("Callback: 0x%llx", callback);
+
+	DWORD64 driverPa = sputnik::storage_get<DWORD64>(VMX_ROOT_STORAGE::DRIVER_BASE_PA);
+	DbgLog("Driver pa: 0x%llx", driverPa);
 	
 	mapper::kernel_ctx ctx;
-	if (!NT_SUCCESS(status)) {
-		ctx.free_pool((void*)driverBase);
-		return -1;
-	}
-	
-	DWORD64 callback = sputnik::storage_get<DWORD64>(VMX_ROOT_STORAGE::CALLBACK_ADDRESS);
-	DbgLog("Callback: 0x%llx", callback);
-	
+	sputnik::storage_set(VMX_ROOT_STORAGE::CURRENT_CONTROLLER_PROCESS, ctx.get_peprocess(GetCurrentProcessId()));
+
+	DbgLog("Current Process: %p", sputnik::storage_get<PEPROCESS>(VMX_ROOT_STORAGE::CURRENT_CONTROLLER_PROCESS));
 	vdm.Init(callback);
 	
-	KERNEL_REQUEST req = { 0 };
+	KERNEL_REQUEST req;
 	req.instructionID = INST_REGISTER_SCORE_NOTIFY;
 	NTSTATUS ntStatus = -1;
 	BOOLEAN bSuccess = vdm.CallKernelFunction(&ntStatus, callback, &req);
@@ -325,6 +335,7 @@ int Main() {
 	DbgLog("Write result: 0x%x", sputnik::write_virt((u64)&value, (u64)&valueWrite, sizeof(valueWrite), cr3));
 	DbgLog("0x0: 0x%llx", value);
 	DbgLog("0x0: 0x%llx", *(DWORD64*)identity::phyToVirt(0));
+	DbgLog("Driver 0x0: 0x%llx", *(DWORD64*)identity::phyToVirt(driverPa));
 
 	return 0;
 }

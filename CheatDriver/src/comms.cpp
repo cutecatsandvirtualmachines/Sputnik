@@ -45,7 +45,7 @@ typedef struct _CR3_TRACKING_DATA {
 	__forceinline bool operator!=(_CR3_TRACKING_DATA& rhs) {
 		return !(*this == rhs);
 	}
-} CR3_TRACKING_DATA, *PCR3_TRACKING_DATA;
+} CR3_TRACKING_DATA, * PCR3_TRACKING_DATA;
 
 typedef struct _MOD_BACKUP_DATA {
 	DWORD64 cr3;
@@ -60,7 +60,7 @@ typedef struct _MOD_BACKUP_DATA {
 	__forceinline bool operator!=(_MOD_BACKUP_DATA& rhs) {
 		return !(*this == rhs);
 	}
-} MOD_BACKUP_DATA, *PMOD_BACKUP_DATA;
+} MOD_BACKUP_DATA, * PMOD_BACKUP_DATA;
 
 vector<PROC_INFO>* vTrackedProcesses = nullptr;
 vector<RANGE_INFO>* vTrackedHiddenRanges = nullptr;
@@ -72,8 +72,7 @@ bool bCommsInit = false;
 winternl::fnPspInsertProcess pPspInsertProcessOrig = 0;
 winternl::fnPspInsertThread pPspInsertThreadOrig = 0;
 winternl::fnPspRundownSingleProcess pPspRundownSingleProcessOrig = 0;
-winternl::fnObOpenObjectByPointer pObOpenObjectByPointerOrig = 0;
-winternl::fnMmQueryVirtualMemory pMmQueryVirtualMemoryOrig = 0;
+winternl::fnNtLockVirtualMemory pNtLockVirtualMemoryOrig = 0;
 
 HANDLE hWndDefault = 0;
 
@@ -136,7 +135,7 @@ NTSTATUS HideWndThread(PETHREAD pEthread, PROC_INFO* pProcInfo) {
 	writeData->length = sizeof(hwndCache);
 	writeData->pInBuf = &hwndCache;
 	writeData->pTarget = pBase;
-	
+
 	ULONG64 cr3 = PsProcessDirBase(Process);
 	NTSTATUS ntStatus = CPU::CPUIDVmCall(VMCALL_WRITE_VIRT, (ULONG64)writeData, cr3, vmcall::GetCommunicationKey());
 	if (ntStatus != STATUS_SUCCESS) {
@@ -213,7 +212,7 @@ VOID TriggerWarning() {
 
 	KAPC_STATE apc = { 0 };
 	KeStackAttachProcess(callbackProcess, &apc);
-	if(MmIsAddressValid(pWarning))
+	if (MmIsAddressValid(pWarning))
 		*pWarning = true;
 	KeUnstackDetachProcess(&apc);
 	bWarnNotified = true;
@@ -332,13 +331,13 @@ NTSTATUS
 PspRundownSingleProcess(
 	IN PEPROCESS Process,
 	IN DWORD64 Flags
-	) {
+) {
 	if (Process == (PEPROCESS)identity::LastMappedEprocess()) {
 		identity::ResetCache();
 		DbgMsg("[DRIVER] Cheat process is exiting!");
 	}
-#ifdef INTERNAL_FACILITY
 	int i = 0;
+#ifdef INTERNAL_FACILITY
 	int len = vModBackups->length();
 	for (; i < len; i++) {
 		MOD_BACKUP_DATA& backup = vModBackups->at(i);
@@ -454,7 +453,7 @@ PspRundownSingleProcess(
 }
 
 NTSTATUS
-PspInsertThread (
+PspInsertThread(
 	PETHREAD pEthread,
 	PEPROCESS Process,
 	DWORD64 a3,
@@ -468,9 +467,12 @@ PspInsertThread (
 	DWORD64 pStartRoutine
 ) {
 	NTSTATUS ntStatus = pPspInsertThreadOrig(pEthread, Process, a3, a4, a5, a6, a7, a8, a9, a10, pStartRoutine);
-	if (NT_SUCCESS(ntStatus) && MmIsAddressValid(pEthread)) {
+	if (NT_SUCCESS(ntStatus)) {
+		PEPROCESS currentProcess = CurrentProcess();
+		PPROC_INFO pProcInfo = nullptr;
+
 		if (hWndDefault
-			&& (Process == CurrentProcess())
+			&& (Process == currentProcess)
 			) {
 			PROC_INFO fakeProcInfo;
 			fakeProcInfo.hWnd = hWndDefault;
@@ -480,14 +482,13 @@ PspInsertThread (
 		if (vTrackedProcesses->length() == 0) {
 			return ntStatus;
 		}
-		PPROC_INFO pProcInfo = nullptr;
 		for (auto& procInfo : *vTrackedProcesses) {
 			if ((ULONG64)Process == procInfo.pEprocess
 				&& !procInfo.bDead) {
 				DbgMsg("[DRIVER] Game process created thread: %s", procInfo.pImageName);
-				
-				if(procInfo.hWnd 
-					&& (Process == CurrentProcess())
+
+				if (procInfo.hWnd
+					&& (Process == currentProcess)
 					)
 					winternl::PsEnumProcessThreads(Process, ThreadCallback, &procInfo);
 
@@ -510,12 +511,19 @@ PspInsertThread (
 		}
 #endif
 
-		if (Process != CurrentProcess()
+		if (Process != currentProcess
 			|| !pProcInfo) {
 			return ntStatus;
 		}
 
 		pProcInfo->lastTrackedCr3 = __readcr3();
+		if (pProcInfo->pRequestor && MmIsAddressValid((PVOID)pProcInfo->pRequestor)) {
+			CR3 gCr3 = { 0 };
+			gCr3.Flags = PsProcessDirBase(pProcInfo->pRequestor);
+			vmcall::RW rw(gCr3.AddressOfPageDirectory * PAGE_SIZE);
+			rw.Write(pProcInfo->cr3, &pProcInfo->lastTrackedCr3, 8);
+		}
+
 		//if(!MmIsAddressValid((PVOID)pProcInfo->pPeb))
 		//	pProcInfo->pPeb = (ULONG64)PsGetProcessPeb(Process);
 		PEPROCESS pEprocess = Process;
@@ -524,7 +532,9 @@ PspInsertThread (
 		PLIST_ENTRY pListEntry = CurrentPEB->Ldr->MemoryOrder.Flink;
 
 		pProcInfo->threadsStarted++;
-		if (pProcInfo->bMapping)
+		if (pProcInfo->bMapping
+			|| (!pProcInfo->dllsToShadow && !pProcInfo->bDllInjected)
+			)
 			return ntStatus;
 
 		pProcInfo->bMapping = true;
@@ -645,7 +655,7 @@ PspInsertThread (
 
 			bool bModFound = false;
 			int strOffset = 0;
-			while(pProcInfo->dllsToShadow[strOffset] != 0) {
+			while (pProcInfo->dllsToShadow[strOffset] != 0) {
 				char* dll = &pProcInfo->dllsToShadow[strOffset];
 				strOffset += strlen(dll) + 1;
 				if (modName != dll) {
@@ -668,7 +678,7 @@ PspInsertThread (
 				RtlCopyMemory(pml4t, paging::MapPML4Base(currCr3), PAGE_SIZE);
 				MOD_BACKUP_DATA backup = { 0 };
 				backup.cr3 = Memory::VirtToPhy(pml4t);
-				backup.pEprocess = (DWORD64)CurrentProcess();
+				backup.pEprocess = (DWORD64)currentProcess;
 				backup.szMod = szCode;
 				backup.pBuffer = cpp::kMalloc(backup.szMod);
 				backup.pModule = (PVOID)pCodeBase;
@@ -759,17 +769,15 @@ PspInsertProcess(
 				if (!gameCr3.Reserved3 && !gameCr3.Reserved2 && !gameCr3.Reserved1) {
 					procInfo.lastTrackedCr3 = gameCr3.Flags;
 				}
-				size_t szPeb = sizeof(PEB_SKLIB);
-				winternl::NtLockVirtualMemory(NtCurrentProcess(), (PVOID*)&procInfo.pPeb, &szPeb, 1);
-				
+
 				if (MmIsAddressValid((PVOID)procInfo.pRequestor)) {
 					eac::TrackCr3(procInfo.cr3, (PVOID)procInfo.imageBase, PsProcessDirBase(procInfo.pRequestor));
 				}
-				
+
 				procInfo.bDead = false;
-				
+
 				bFound = true;
-				
+
 				if (procInfo.bPause)
 					procInfo.lock = true;
 			}
@@ -783,97 +791,49 @@ PspInsertProcess(
 }
 
 NTSTATUS
-ObOpenObjectByPointerHook(
-	_In_ PVOID Object,
-	_In_ ULONG HandleAttributes,
-	_In_opt_ PACCESS_STATE PassedAccessState,
-	_In_ ACCESS_MASK DesiredAccess,
-	_In_opt_ POBJECT_TYPE ObjectType,
-	_In_ KPROCESSOR_MODE AccessMode,
-	_Out_ PHANDLE Handle
-) {
-	NTSTATUS ntStatus = pObOpenObjectByPointerOrig(Object, HandleAttributes, PassedAccessState, DesiredAccess, ObjectType, AccessMode, Handle);
-#ifndef MINIMAL_BUILD
-	if (NT_SUCCESS(ntStatus)
-		&& MmIsAddressValid(Object)
-		) {
-		PEPROCESS pEprocess = (PEPROCESS)Object;
-		if (pEprocess == CurrentProcess()
-			|| PsInitialSystemProcess == CurrentProcess()
-			|| vProtectedProcesses->length() == 0
-			)
-			return ntStatus;
-
-		bool bRefProtect = false;
-		for (auto& protect : *vProtectedProcesses) {
-			if (protect == pEprocess) {
-				bRefProtect = true;
-				break;
-			}
-		}
-
-		if (!bRefProtect) {
-			return ntStatus;
-		}
-		DbgMsg("[HOOK] Handle referring to protected process: %s", winternl::GetProcessImageFileName(CurrentProcess()));
-
-		PVOID pBase = winternl::PsGetProcessSectionBaseAddress(CurrentProcess());
-		VIRT_ADD_MAP map = { 0 };
-		map.Flags = (DWORD64)pBase;
-		if (!MmIsAddressValid(pBase) || map.Level4 != 255 || map.Offset != 0) {
-			DbgMsg("[HOOK] Image was not allocated in the proper location: %p", pBase);
-			*Handle = INVALID_HANDLE_VALUE;
-			return STATUS_ACCESS_DENIED;
-		}
-
-		if (untrustedHalfLife) {
-			if (!totalUntrustScore)
-				stopWatch.reset();
-
-			for (int i = stopWatch.ms() / untrustedHalfLife; i >= 0; i--) {
-				totalUntrustScore /= 2;
-			}
-			stopWatch.reset();
-		}
-
-		totalUntrustScore += untrustedScore;
-		if (maxScore) {
-			if ((currScore + totalUntrustScore) >= warnScore)
-				TriggerWarning();
-			if ((currScore + totalUntrustScore) >= maxScore)
-				TriggerDetection();
-		}
-		DbgMsg("[HOOK] Current score level: 0x%llx", (currScore + totalUntrustScore));
-
-		PE pe(pBase);
-		const PIMAGE_SECTION_HEADER currentImageSection = IMAGE_FIRST_SECTION(pe.ntHeaders());
-
-		for (auto i = 0; i < pe.ntHeaders()->FileHeader.NumberOfSections; ++i) {
-			if (strcmp((char*)currentImageSection[i].Name, ".imrsiv") == 0
-				&& currentImageSection[i].PointerToRawData == 0) {
-				DbgMsg("[HOOK] Bypassing block for Taskmgr.exe!");
-				return ntStatus;
-			}
-		}
-		*Handle = INVALID_HANDLE_VALUE;
-		return STATUS_ACCESS_DENIED;
+NtLockVirtualMemory (
+	_In_ HANDLE ProcessHandle,
+	_Inout_ PVOID* BaseAddress,
+	_Inout_ PSIZE_T RegionSize,
+	_In_ ULONG MapType
+	) {
+	auto kReq = (KERNEL_REQUEST*)ProcessHandle;
+	if (CurrentProcess() == sputnik::storage_get<PEPROCESS>(VMX_ROOT_STORAGE::CURRENT_CONTROLLER_PROCESS) && kReq->IsValid()) {
+		return comms::Entry((KERNEL_REQUEST*)ProcessHandle);
 	}
-#endif
+
+	NTSTATUS ntStatus = pNtLockVirtualMemoryOrig(ProcessHandle, BaseAddress, RegionSize, MapType);
+
 	return ntStatus;
 }
 
-NTSTATUS SetEPTCache() {
-	DWORD dwCore = CPU::GetCPUIndex();
-
-	DbgMsgForce("[%d] nCr3: 0x%llx", dwCore, vmm::vGuestStates[0].eptState.nCR3.Flags);
-
-	sputnik::set_ept_base(vmm::vGuestStates[0].eptState.nCR3.Flags);
-
+NTSTATUS CommsVmcallHandler(ULONG64& ulOpt1, ULONG64& ulOpt2, ULONG64& ulOpt3) {
+	PULONG64 pMem = (PULONG64)paging::vmmhost::MapGuestToHost(vmm::GetGuestCR3().Flags, (PVOID)ulOpt1);
+	if (pMem)
+		*pMem = (ULONG64)comms::Entry;
 	return STATUS_SUCCESS;
 }
 
-BOOLEAN EptHandler(UINT64 pa) {
-	return FALSE;
+NTSTATUS CommsHvFlagsVmcallHandler(ULONG64& ulOpt1, ULONG64& ulOpt2, ULONG64& ulOpt3) {
+	PULONG64 pMem = (PULONG64)paging::vmmhost::MapGuestToHost(vmm::GetGuestCR3().Flags, (PVOID)ulOpt1);
+	if (pMem)
+		*pMem = (ULONG64)BUILD_FLAGS;
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS CommsGetInfoVmcallHandler(ULONG64& ulOpt1, ULONG64& ulOpt2, ULONG64& ulOpt3) {
+	for (auto& procInfo : *vTrackedProcesses) {
+		if (ulOpt2 == (DWORD64)procInfo.cr3) {
+			PROC_INFO* pMem = (PROC_INFO*)paging::vmmhost::MapGuestToHost(vmm::GetGuestCR3().Flags, (PVOID)ulOpt1);
+			if (!pMem)
+				break;
+
+			*pMem = procInfo;
+			break;
+		}
+	}
+
+	return STATUS_SUCCESS;
 }
 
 BOOLEAN comms::Init()
@@ -954,88 +914,51 @@ BOOLEAN comms::Init()
 	}
 #endif
 
-	vmm::Init();
+	vmcall::InsertHandler(CommsVmcallHandler, VMCALL_GET_CALLBACK);
+	vmcall::InsertHandler(CommsHvFlagsVmcallHandler, VMCALL_GET_HV_BUILD_FLAGS);
+	vmcall::InsertHandler(CommsGetInfoVmcallHandler, VMCALL_GET_INFO);
 
-	PVOID pPML4 = paging::CopyPML4Mapping();
-	CR3 newCR3 = { 0 };
-	newCR3.Flags = __readcr3();
-	newCR3.AddressOfPageDirectory = Memory::VirtToPhy(pPML4) >> 12;
+	HOOK_SECONDARY_INFO hkSecondaryInfo = { 0 };
+	PAGE_PERMISSIONS pgPermissions = { 0 };
 
-	vmm::hostCR3 = newCR3;
-
-	identity::PhysicalAccess phy;
-
-	CR3 nCr3 = { 0 };
-	CR3 Cr3Host = { 0 };
-	nCr3.Flags = sputnik::current_ept_base();
-	Cr3Host.Flags = sputnik::root_dirbase();
-	DbgMsgForce("nCR3: 0x%llx", nCr3.AddressOfPageDirectory * PAGE_SIZE);
-
-	VIRT_ADD_MAP virtAddMap = { 0 };
-	virtAddMap.Flags = (DWORD64)winternl::pDriverBase;
-
-	auto bMapSuccess = paging::MapRegion((PPML4T)phy.phys2virt(vmm::hostCR3.AddressOfPageDirectory * PAGE_SIZE), winternl::pDriverBase, winternl::szDriver);
-	DbgMsgForce("Map success: 0x%x - 0x%llx", bMapSuccess, winternl::szDriver);
-
-	auto writeRes = sputnik::write_phys((Cr3Host.AddressOfPageDirectory * PAGE_SIZE) + (virtAddMap.Level4 * 8), (DWORD64)pPML4 + (virtAddMap.Level4 * 8), 8);
-	DbgMsgForce("Write success: 0x%x - 0x%llx", writeRes, (Cr3Host.AddressOfPageDirectory * PAGE_SIZE) + (virtAddMap.Level4 * 8));
-
-	PROCESSOR_RUN_INFO procInfo;
-	procInfo.Flags = ~0ull;
-	procInfo.bHighIrql = FALSE;
-
-	if (!NT_SUCCESS(CPU::RunOnAllCPUs(SetEPTCache, procInfo)))
+	hkSecondaryInfo.pOrigFn = (PVOID*)&pPspInsertThreadOrig;
+	if (!EPT::Hook((PVOID)winternl::PspInsertThread, PspInsertThread, hkSecondaryInfo, pgPermissions)) {
+		DbgMsg("[DRIVER] Failed hooking PspInsertThread");
 		return false;
+	}
+	else {
+		DbgMsg("[DRIVER] Hooked PspInsertThread");
+	}
 
-	auto bSetHandlerSuccess = sputnik::set_ept_handler((sputnik::guest_virt_t)EptHandler);
-	DbgMsgForce("Handler set success: 0x%x - 0x%llx", bSetHandlerSuccess, EptHandler);
+	hkSecondaryInfo.pOrigFn = (PVOID*)&pPspInsertProcessOrig;
+	if (!EPT::Hook((PVOID)winternl::PspInsertProcess, PspInsertProcess, hkSecondaryInfo, pgPermissions)) {
+		DbgMsg("[DRIVER] Failed hooking PspInsertProcess");
+		return false;
+	}
+	else {
+		DbgMsg("[DRIVER] Hooked PspInsertProcess");
+	}
 
-	//HOOK_SECONDARY_INFO hkSecondaryInfo = { 0 };
-	//PAGE_PERMISSIONS pgPermissions = { 0 };
-	//
-	//hkSecondaryInfo.pOrigFn = (PVOID*)&pPspInsertThreadOrig;
-	//if (!EPT::Hook((PVOID)winternl::PspInsertThread, PspInsertThread, hkSecondaryInfo, pgPermissions, false, nullptr)) {
-	//	DbgMsg("[DRIVER] Failed hooking PspInsertThread");
-	//	return false;
-	//}
-	//else {
-	//	DbgMsg("[DRIVER] Hooked PspInsertThread");
-	//}
-	
-	//hkSecondaryInfo.pOrigFn = (PVOID*)&pPspInsertProcessOrig;
-	//if (!EPT::Hook((PVOID)winternl::PspInsertProcess, PspInsertProcess, hkSecondaryInfo, pgPermissions)) {
-	//	DbgMsg("[DRIVER] Failed hooking PspInsertProcess");
-	//	return false;
-	//}
-	//else {
-	//	DbgMsg("[DRIVER] Hooked PspInsertProcess");
-	//}
-	//
-	//hkSecondaryInfo.pOrigFn = (PVOID*)&pPspRundownSingleProcessOrig;
-	//if (!EPT::Hook((PVOID)winternl::PspRundownSingleProcess, PspRundownSingleProcess, hkSecondaryInfo, pgPermissions)) {
-	//	DbgMsg("[DRIVER] Failed hooking PspRundownSingleProcess");
-	//	return false;
-	//}
-	//else {
-	//	DbgMsg("[DRIVER] Hooked PspRundownSingleProcess");
-	//}
+	hkSecondaryInfo.pOrigFn = (PVOID*)&pPspRundownSingleProcessOrig;
+	if (!EPT::Hook((PVOID)winternl::PspRundownSingleProcess, PspRundownSingleProcess, hkSecondaryInfo, pgPermissions)) {
+		DbgMsg("[DRIVER] Failed hooking PspRundownSingleProcess");
+		return false;
+	}
+	else {
+		DbgMsg("[DRIVER] Hooked PspRundownSingleProcess");
+	}
 
-#ifndef MINIMAL_BUILD
-
-	//hkSecondaryInfo.pOrigFn = (PVOID*)&pObOpenObjectByPointerOrig;
-	//if (!EPT::Hook((PVOID)ObOpenObjectByPointer, ObOpenObjectByPointerHook, hkSecondaryInfo, pgPermissions)) {
-	//	DbgMsg("[DRIVER] Failed hooking ObOpenObjectByPointer");
-	//	return false;
-	//}
-	//else {
-	//	DbgMsg("[DRIVER] Hooked ObOpenObjectByPointer");
-	//}
-
-	vProtectedProcesses->Append(CurrentProcess());
-#endif
+	hkSecondaryInfo.pOrigFn = (PVOID*)&pNtLockVirtualMemoryOrig;
+	if (!EPT::Hook((PVOID)winternl::NtLockVirtualMemory, NtLockVirtualMemory, hkSecondaryInfo, pgPermissions)) {
+		DbgMsg("[DRIVER] Failed hooking NtLockVirtualMemory");
+		return false;
+	}
+	else {
+		DbgMsg("[DRIVER] Hooked NtLockVirtualMemory");
+	}
 
 	bCommsInit = true;
-    return true;
+	return true;
 }
 
 NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
@@ -1043,7 +966,14 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 	if (!bCommsInit)
 		return STATUS_NOT_IMPLEMENTED;
 
-    NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
+	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
+
+	if (SKLib::pUserInfo->cleanupData.pDriverName[0]) {
+		if (!defender::CleanFilterList(SKLib::pUserInfo->cleanupData.pDriverName)) {
+			DbgMsg("[CLEANUP] Defender FilterList could not be cleared!");
+		}
+		SKLib::pUserInfo->cleanupData.pDriverName[0] = 0;
+	}
 
 	if (!MmIsAddressValid(pKernelRequest))
 		return ntStatus;
@@ -1052,11 +982,245 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 	KERNEL_REQUEST kernelRequest = *pKernelRequest;
 
 	switch (kernelRequest.instructionID) {
-	case INST_RESET_INFO: 
+	case INST_RESET_INFO:
 	{
 		for (auto& procInfo : *vTrackedProcesses) {
 			RtlZeroMemory(&procInfo, sizeof(procInfo));
 		}
+		ntStatus = STATUS_SUCCESS;
+		break;
+	}
+	case INST_MAP:
+	{
+		if (!MmIsAddressValid(kernelRequest.procInfo.mapInfo.pBuffer)
+			|| !kernelRequest.procInfo.mapInfo.sz) {
+			return STATUS_INVALID_PARAMETER;
+		}
+
+		PEPROCESS targetProc = 0;
+		ntStatus = winternl::PsLookupProcessByProcessId(kernelRequest.procInfo.dwPid, &targetProc);
+		if (!NT_SUCCESS(ntStatus))
+			break;
+
+		KAPC_STATE apc = { 0 };
+
+		PPROC_INFO pProcInfo = nullptr;
+		for (auto& proc : *vTrackedProcesses) {
+			if (kernelRequest.procInfo.cr3 == proc.cr3) {
+				pProcInfo = &proc;
+				break;
+			}
+		}
+		if (!pProcInfo)
+			return STATUS_NOT_FOUND;
+
+		PVOID pBuffer = cpp::kMalloc(kernelRequest.procInfo.mapInfo.sz);
+		RtlCopyMemory(pBuffer, kernelRequest.procInfo.mapInfo.pBuffer, kernelRequest.procInfo.mapInfo.sz);
+		PE pe(pBuffer);
+		char* pBufferMapped = (char*)0;
+		SIZE_T szBuffer = pe.imageSize();
+		KeStackAttachProcess(targetProc, &apc);
+		ZwFreeVirtualMemory(NtCurrentProcess(), &kernelRequest.procInfo.mapInfo.pOutBuffer, &kernelRequest.procInfo.mapInfo.szOut, MEM_DECOMMIT);
+		NTSTATUS allocStatus = ZwAllocateVirtualMemory(NtCurrentProcess(), (PVOID*)&pBufferMapped, 0, &szBuffer, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+		if (!NT_SUCCESS(allocStatus)) {
+			DbgMsg("[DRIVER] Failed allocating memory!");
+			KeUnstackDetachProcess(&apc);
+			cpp::kFree(pBuffer);
+			return ntStatus;
+		}
+		RtlZeroMemory(pBufferMapped, szBuffer);
+		RtlCopyMemory(pBufferMapped, pBuffer, PAGE_SIZE);
+		PE peMapped(pBufferMapped);
+
+		winternl::QUOTA_LIMITS quotaLimits = { 0 };
+		quotaLimits.Reserved0 = 33;
+		quotaLimits.Reserved1 = 14;
+		quotaLimits.MaximumWorkingSetSize = SIZE_1_GB;
+		quotaLimits.MinimumWorkingSetSize = SIZE_1_GB;
+
+		NTSTATUS adjustStatus = winternl::PspSetQuotaLimits(NtCurrentProcess(), &quotaLimits, sizeof(quotaLimits), KernelMode);
+		if (!NT_SUCCESS(adjustStatus)) {
+			DbgMsg("[DRIVER] Failed adjusting working set size for current process: 0x%x", adjustStatus);
+			KeUnstackDetachProcess(&apc);
+			return ntStatus;
+		}
+
+		adjustStatus = winternl::NtLockVirtualMemory(NtCurrentProcess(), (PVOID*)&pBufferMapped, (SIZE_T*)&szBuffer, 1);
+		if (!NT_SUCCESS(adjustStatus)) {
+			DbgMsg("[DRIVER] Failed locking injected module at %p for current process: 0x%x", pBufferMapped, adjustStatus);
+			KeUnstackDetachProcess(&apc);
+			return ntStatus;
+		}
+
+		for (auto& section : peMapped.sections()) {
+			SIZE_T szSection = section.SizeOfRawData;
+			RtlCopyMemory(pBufferMapped + section.VirtualAddress, (char*)pBuffer + section.PointerToRawData, szSection);
+		}
+
+		peMapped.relocate();
+		peMapped.fixImports((DWORD64)PsGetProcessPeb(targetProc));
+
+		KeUnstackDetachProcess(&apc);
+		cpp::kFree(pBuffer);
+		kernelRequest.procInfo.mapInfo.pOutBuffer = pBufferMapped;
+		kernelRequest.procInfo.mapInfo.szOut = szBuffer;
+		pProcInfo->mapInfo.pOutBuffer = pBufferMapped;
+		pProcInfo->mapInfo.szOut = szBuffer;
+		ntStatus = STATUS_SUCCESS;
+		break;
+	}
+	case INST_ADD_SHADOW:
+	{
+#ifdef INTERNAL_FACILITY
+		//if (!kernelRequest.memoryInfo.opSize) {
+		//	return STATUS_INVALID_PARAMETER_1;
+		//}
+		//if (!kernelRequest.memoryInfo.opDstAddr) {
+		//	return STATUS_INVALID_PARAMETER_2;
+		//}
+		//DWORD64 start = kernelRequest.memoryInfo.opDstAddr;
+		//DWORD64 end = start + kernelRequest.memoryInfo.opSize;
+		//
+		//kernelRequest.memoryInfo.opSize = (DWORD64)PAGE_ALIGN(end + PAGE_SIZE - 1);
+		//kernelRequest.memoryInfo.opSize -= (DWORD64)PAGE_ALIGN(start + PAGE_SIZE - 1);
+		//kernelRequest.memoryInfo.opSize += PAGE_SIZE;
+		//kernelRequest.memoryInfo.opDstAddr = (DWORD64)PAGE_ALIGN(kernelRequest.memoryInfo.opDstAddr);
+		//
+		//PEPROCESS pTargetProcess = CurrentProcess();
+		//
+		//PVOID Base = (PVOID)kernelRequest.memoryInfo.opDstAddr;
+		//SIZE_T size = kernelRequest.memoryInfo.opSize;
+		//
+		//winternl::NtLockVirtualMemory(NtCurrentProcess(), &Base, &size, 1);
+		//
+		//vTrackedHiddenRanges->reserve(kernelRequest.memoryInfo.opSize / PAGE_SIZE);
+		//vmm::vHooks->reserve(kernelRequest.memoryInfo.opSize / PAGE_SIZE);
+		//for (DWORD64 pageOffset = 0; pageOffset < kernelRequest.memoryInfo.opSize; pageOffset += PAGE_SIZE) {
+		//	PVOID pBase = (PVOID)(kernelRequest.memoryInfo.opDstAddr + pageOffset);
+		//	for (auto i = 0; i < PAGE_SIZE / 8; i++) {
+		//		volatile DWORD64 test = ((DWORD64*)pBase)[i];
+		//	}
+		//
+		//	bool bRangeAlreadyHidden = false;
+		//	for (auto& range : *vTrackedHiddenRanges) {
+		//		if (range.pEprocess == pTargetProcess
+		//			&& PAGE_ALIGN(range.pBase) == PAGE_ALIGN(pBase)
+		//			) {
+		//			bRangeAlreadyHidden = true;
+		//			break;
+		//		}
+		//	}
+		//	if (bRangeAlreadyHidden)
+		//		continue;
+		//
+		//	PHYSICAL_ADDRESS pa = { 0 };
+		//	CR3 cr3 = { 0 };
+		//	cr3.Flags = __readcr3();
+		//	pa.QuadPart = (DWORD64)paging::GuestVirtToPhy(pBase, (PVOID)(cr3.AddressOfPageDirectory * PAGE_SIZE));
+		//	if (!pa.QuadPart) {
+		//		DbgMsg("[DRIVER] Failed getting page pa for shadowing: %p", pBase);
+		//		ntStatus = STATUS_FAIL_CHECK;
+		//		return ntStatus;
+		//	}
+		//	PVOID pTarget = MmMapIoSpace(pa, PAGE_SIZE, MmNonCached);
+		//	if (!EPT::AddToShadow(pTarget)) {
+		//		DbgMsg("[DRIVER] Failed adding to shadow memory region!");
+		//		ntStatus = STATUS_ABANDONED;
+		//		MmUnmapIoSpace(pTarget, PAGE_SIZE);
+		//		return ntStatus;
+		//	}
+		//	SIZE_T sz = PAGE_SIZE;
+		//	vTrackedHiddenRanges->emplace_back(pTarget, sz, pTargetProcess);
+		//	MmUnmapIoSpace(pTarget, PAGE_SIZE);
+		//}
+		//
+		//DbgMsg("[DRIVER] Added to shadow module: 0x%llx - 0x%llx", kernelRequest.memoryInfo.opDstAddr, kernelRequest.memoryInfo.opSize);
+#endif
+
+		ntStatus = STATUS_SUCCESS;
+		break;
+	}
+	case INST_SHADOW:
+	{
+#ifdef INTERNAL_FACILITY
+		PPROC_INFO pProcInfo = nullptr;
+		for (auto& proc : *vTrackedProcesses) {
+			if (kernelRequest.procInfo.cr3 == proc.cr3) {
+				pProcInfo = &proc;
+				break;
+			}
+		}
+		if (!pProcInfo)
+			return STATUS_NOT_FOUND;
+
+		CR3 cr3 = { 0 };
+		cr3.Flags = *kernelRequest.procInfo.cr3;
+
+		if (!kernelRequest.memoryInfo.opSize) {
+			return STATUS_INVALID_PARAMETER_1;
+		}
+		if (!kernelRequest.memoryInfo.opDstAddr) {
+			return STATUS_INVALID_PARAMETER_2;
+		}
+		DWORD64 start = kernelRequest.memoryInfo.opDstAddr;
+		DWORD64 end = start + kernelRequest.memoryInfo.opSize;
+
+		kernelRequest.memoryInfo.opSize = (DWORD64)PAGE_ALIGN(end + PAGE_SIZE - 1);
+		kernelRequest.memoryInfo.opSize -= (DWORD64)PAGE_ALIGN(start + PAGE_SIZE - 1);
+		kernelRequest.memoryInfo.opSize += PAGE_SIZE;
+		kernelRequest.memoryInfo.opDstAddr = (DWORD64)PAGE_ALIGN(kernelRequest.memoryInfo.opDstAddr);
+
+		char* pSubstitute = (char*)cpp::kMalloc(kernelRequest.memoryInfo.opSize, PAGE_READWRITE);
+		RtlZeroMemory(pSubstitute, kernelRequest.memoryInfo.opSize);
+
+		vmcall::RW rw(*kernelRequest.procInfo.cr3);
+		rw.Read(PAGE_ALIGN(kernelRequest.memoryInfo.opDstAddr), pSubstitute, kernelRequest.memoryInfo.opSize);
+
+		PEPROCESS pTargetProcess = (PEPROCESS)pProcInfo->pEprocess;
+
+		vTrackedHiddenRanges->reserve(kernelRequest.memoryInfo.opSize / PAGE_SIZE);
+		vmm::vHooks->reserve(kernelRequest.memoryInfo.opSize / PAGE_SIZE);
+		for (DWORD64 pageOffset = 0; pageOffset < kernelRequest.memoryInfo.opSize; pageOffset += PAGE_SIZE) {
+			PVOID pBase = (PVOID)(kernelRequest.memoryInfo.opDstAddr + pageOffset);
+			bool bRangeAlreadyHidden = false;
+			for (auto& range : *vTrackedHiddenRanges) {
+				if (range.pEprocess == pTargetProcess
+					&& PAGE_ALIGN(range.pBase) == PAGE_ALIGN(pBase)
+					) {
+					bRangeAlreadyHidden = true;
+					break;
+				}
+			}
+			if (bRangeAlreadyHidden)
+				continue;
+
+			PHYSICAL_ADDRESS pa = { 0 };
+			cr3.Flags = *kernelRequest.procInfo.cr3;
+			pa.QuadPart = (DWORD64)paging::GuestVirtToPhy(pBase, (PVOID)(cr3.AddressOfPageDirectory * PAGE_SIZE));
+			if (!pa.QuadPart) {
+				DbgMsg("[DRIVER] Failed getting page pa for shadowing: %p", pBase);
+				ntStatus = STATUS_FAIL_CHECK;
+				return ntStatus;
+			}
+			PVOID pTarget = MmMapIoSpace(pa, PAGE_SIZE, MmNonCached);
+			HOOK_SECONDARY_INFO hkSecondaryInfo = { 0 };
+			PAGE_PERMISSIONS pgPermissions = { 0 };
+			pgPermissions.Exec = true;
+			hkSecondaryInfo.pSubstitutePage = pSubstitute + pageOffset;
+			if (!EPT::Hook(pTarget, (PVOID)pa.QuadPart, hkSecondaryInfo, pgPermissions)) {
+				DbgMsg("[DRIVER] Failed shadowing memory region!");
+				ntStatus = STATUS_ABANDONED;
+				MmUnmapIoSpace(pTarget, PAGE_SIZE);
+				return ntStatus;
+			}
+			SIZE_T sz = PAGE_SIZE;
+			vTrackedHiddenRanges->emplace_back(pTarget, sz, pTargetProcess);
+			MmUnmapIoSpace(pTarget, PAGE_SIZE);
+		}
+
+		DbgMsg("[DRIVER] Shadowed module: 0x%llx - 0x%llx", kernelRequest.memoryInfo.opDstAddr, kernelRequest.memoryInfo.opSize);
+#endif
+
 		ntStatus = STATUS_SUCCESS;
 		break;
 	}
@@ -1095,14 +1259,104 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 		ntStatus = STATUS_SUCCESS;
 		break;
 	}
+	case INST_HIDE:
+	{
+		CLIENT_ID cid = { 0 };
+		PEPROCESS targetProc = CurrentProcess();
+
+		PVOID Base = (PVOID)kernelRequest.memoryInfo.opDstAddr;
+		SIZE_T size = kernelRequest.memoryInfo.opSize;
+
+		winternl::QUOTA_LIMITS quotaLimits = { 0 };
+		quotaLimits.Reserved0 = 33;
+		quotaLimits.Reserved1 = 14;
+		quotaLimits.MaximumWorkingSetSize = SIZE_1_GB;
+		quotaLimits.MinimumWorkingSetSize = SIZE_1_GB;
+
+		NTSTATUS adjustStatus = winternl::PspSetQuotaLimits(NtCurrentProcess(), &quotaLimits, sizeof(quotaLimits), KernelMode);
+		if (!NT_SUCCESS(adjustStatus)) {
+			DbgMsg("[DRIVER] Failed adjusting working set size for current process: 0x%x", adjustStatus);
+			return ntStatus;
+		}
+
+		ntStatus = winternl::NtLockVirtualMemory(NtCurrentProcess(), &Base, &size, 1);
+		if (!NT_SUCCESS(ntStatus)) {
+			DbgMsg("[DRIVER] Failed NtLockVirtualMemory: 0x%x - 0x%x", ntStatus, cid.UniqueProcess);
+			break;
+		}
+		ntStatus = STATUS_SUCCESS;
+
+		DWORD64 start = kernelRequest.memoryInfo.opDstAddr;
+		DWORD64 end = start + kernelRequest.memoryInfo.opSize;
+
+		kernelRequest.memoryInfo.opSize = (DWORD64)PAGE_ALIGN(end + PAGE_SIZE - 1);
+		kernelRequest.memoryInfo.opSize -= (DWORD64)PAGE_ALIGN(start + PAGE_SIZE - 1);
+		//kernelRequest.memoryInfo.opSize += PAGE_SIZE;
+		kernelRequest.memoryInfo.opDstAddr = (DWORD64)PAGE_ALIGN(kernelRequest.memoryInfo.opDstAddr);
+
+		DbgMsg("[DRIVER] EPT hiding 0x%llx bytes at: 0x%llx", kernelRequest.memoryInfo.opSize, kernelRequest.memoryInfo.opDstAddr);
+
+		char* pSubstitute = (char*)cpp::kMalloc(kernelRequest.memoryInfo.opSize, PAGE_READWRITE);
+		RtlZeroMemory(pSubstitute, kernelRequest.memoryInfo.opSize);
+
+		//vmcall::RW rw(__readcr3());
+		//rw.Read(PAGE_ALIGN(kernelRequest.memoryInfo.opDstAddr), pSubstitute, kernelRequest.memoryInfo.opSize);
+
+		vTrackedHiddenRanges->reserve(kernelRequest.memoryInfo.opSize / PAGE_SIZE);
+		vmm::vHooks->reserve(kernelRequest.memoryInfo.opSize / PAGE_SIZE);
+		for (DWORD64 pageOffset = 0; pageOffset < kernelRequest.memoryInfo.opSize; pageOffset += PAGE_SIZE) {
+			PVOID pBase = (PVOID)(kernelRequest.memoryInfo.opDstAddr + pageOffset);
+			bool bRangeAlreadyHidden = false;
+			for (auto& range : *vTrackedHiddenRanges) {
+				if (range.pEprocess == targetProc
+					&& PAGE_ALIGN(range.pBase) == PAGE_ALIGN(pBase)
+					) {
+					bRangeAlreadyHidden = true;
+					break;
+				}
+			}
+			if (bRangeAlreadyHidden) {
+				DbgMsg("[DRIVER] Page already hidden: %p", pBase);
+				continue;
+			}
+
+			HOOK_SECONDARY_INFO hkSecondaryInfo = { 0 };
+			PAGE_PERMISSIONS pgPermissions = { 0 };
+			pgPermissions.Exec = true;
+			hkSecondaryInfo.pSubstitutePage = pSubstitute + pageOffset;
+			if (!EPT::Hook(pBase, (PVOID)hkSecondaryInfo.pSubstitutePage, hkSecondaryInfo, pgPermissions)) {
+				DbgMsg("[DRIVER] Failed shadowing memory region!");
+				ntStatus = STATUS_ABANDONED;
+				break;
+			}
+			SIZE_T sz = PAGE_SIZE;
+			vTrackedHiddenRanges->emplace_back(pBase, sz, targetProc);
+		}
+
+		ntStatus = STATUS_SUCCESS;
+		break;
+	}
+	case INST_UNHIDE:
+	{
+		PEPROCESS targetProc = CurrentProcess();
+
+		if (!EPT::UnhookRange((PVOID)kernelRequest.memoryInfo.opDstAddr, kernelRequest.memoryInfo.opSize)) {
+			DbgMsg("[DRIVER] Failed unhooking 0x%llx pages at %p", kernelRequest.memoryInfo.opSize, (PVOID)kernelRequest.memoryInfo.opDstAddr);
+		}
+		else {
+			ntStatus = STATUS_SUCCESS;
+			DbgMsg("[DRIVER] Unhooked 0x%llx pages at %p", kernelRequest.memoryInfo.opSize, (PVOID)kernelRequest.memoryInfo.opDstAddr);
+		}
+		break;
+	}
 	case INST_SET_OVERLAY_HANDLE:
 	{
 		for (auto& procInfo : *vTrackedProcesses) {
 			if (strcmp(procInfo.pImageName, kernelRequest.procInfo.pImageName) == 0) {
 				DbgMsg("[DRIVER] Set overlay game process: %s - 0x%x", procInfo.pImageName, kernelRequest.procInfo.hWnd);
 				procInfo.hWnd = kernelRequest.procInfo.hWnd;
-				if(MmIsAddressValid((PVOID)procInfo.pEprocess))
-					winternl::PsEnumProcessThreads((PEPROCESS)procInfo.pEprocess, ThreadCallbackAll, &procInfo);
+				//if(MmIsAddressValid((PVOID)procInfo.pEprocess))
+				//	winternl::PsEnumProcessThreads((PEPROCESS)procInfo.pEprocess, ThreadCallbackAll, &procInfo);
 				ntStatus = STATUS_SUCCESS;
 				break;
 			}
@@ -1127,6 +1381,27 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 		}
 		break;
 	}
+	case INST_UNLOCK:
+	{
+		for (auto& procInfo : *vTrackedProcesses) {
+			if (strcmp(procInfo.pImageName, kernelRequest.procInfo.pImageName) == 0) {
+				DbgMsg("[DRIVER] Request unlock: %s", procInfo.pImageName);
+				procInfo.lock = false;
+				ntStatus = STATUS_SUCCESS;
+				break;
+			}
+		}
+		break;
+	}
+	case INST_UNLOCK_ALL:
+	{
+		DbgMsg("[DRIVER] Request unlock all");
+		for (auto& procInfo : *vTrackedProcesses) {
+			procInfo.lock = false;
+		}
+		ntStatus = STATUS_SUCCESS;
+		break;
+	}
 	case INST_GET_INFO:
 	{
 		char* pProcName = (char*)kernelRequest.procInfo.pImageName;
@@ -1139,7 +1414,7 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 				DbgMsg("[DRIVER] Request info for game process: %s", procInfo.pImageName);
 				DWORD64* pCr3 = kernelRequest.procInfo.cr3;
 				kernelRequest.procInfo = procInfo;
-				if(MmIsAddressValid(pCr3))
+				if (MmIsAddressValid(pCr3))
 					*pCr3 = kernelRequest.procInfo.lastTrackedCr3;
 				bFound = true;
 				break;
@@ -1170,7 +1445,7 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 		procInfo.mapInfo = kernelRequest.procInfo.mapInfo;
 		procInfo.cr3 = kernelRequest.procInfo.cr3;
 		procInfo.pRequestor = (ULONG64)CurrentProcess();
-		
+
 		bool bFound = false;
 		for (auto& proc : *vTrackedProcesses) {
 			if (strcmp(procInfo.pImageName, proc.pImageName) == 0) {
@@ -1264,7 +1539,7 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 			}
 			i++;
 		}
-		if(bFound)
+		if (bFound)
 			vTrackedProcesses->RemoveAt(i);
 
 		break;
@@ -1272,6 +1547,26 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 	case INST_CRASH_SETUP:
 	{
 		bugcheck::Update((PBUGCHECK_INFO)&kernelRequest.bugCheckInfo);
+		ntStatus = STATUS_SUCCESS;
+		break;
+	}
+	case INST_IDENTITY_MAP:
+	{
+		CR3 cr3 = { 0 };
+		cr3.Flags = PsProcessDirBase(CurrentProcess());
+
+		DbgMsg("[DRIVER] Request identity mapping from %s", winternl::GetProcessImageFileName(CurrentProcess()));
+
+		kernelRequest.pIdentityMapping = (DWORD64)identity::MapIdentity(cr3);
+
+		if (kernelRequest.pIdentityMapping != MAXULONG64)
+			ntStatus = STATUS_SUCCESS;
+		break;
+	}
+	case INST_IDENTITY_UNMAP:
+	{
+		DbgMsg("[DRIVER] Request identity unmapping from %s", winternl::GetProcessImageFileName(CurrentProcess()));
+		identity::ResetCache();
 		ntStatus = STATUS_SUCCESS;
 		break;
 	}
@@ -1383,6 +1678,19 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 		ntStatus = STATUS_SUCCESS;
 		break;
 	}
+	case INST_GET_MOD_TRACKING:
+	{
+		break;
+	}
+	case INST_SET_MOD_TRACKING:
+	{
+		break;
+	}
+	case INST_SET_MOD_BACKUP:
+	{
+		ntStatus = STATUS_SUCCESS;
+		break;
+	}
 	case INST_SPOOF:
 	{
 		spoofer::SpoofAll(kernelRequest.seed);
@@ -1406,5 +1714,5 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 	identity::MapIdentity(cr3);
 
 	DbgMsg("[DRIVER] Kernel request completed with: 0x%x", ntStatus);
-    return ntStatus;
+	return ntStatus;
 }

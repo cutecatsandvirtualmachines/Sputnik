@@ -14,12 +14,12 @@
 /*
 * When enabled it will disable handle stripping and score mechanism
 */
-//#define MINIMAL_BUILD
+#define MINIMAL_BUILD
 
 /*
 * When disabled it will not use internal injection modules
 */
-#define INTERNAL_FACILITY
+//#define INTERNAL_FACILITY
 
 #ifdef _KERNEL_MODE
 

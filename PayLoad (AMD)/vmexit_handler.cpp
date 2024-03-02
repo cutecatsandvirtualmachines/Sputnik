@@ -1,4 +1,4 @@
-#include "types.h"
+﻿#include "types.h"
 #include "mm.h"
 #include "debug.h"
 #include "exception.h"
@@ -8,14 +8,14 @@
 #include <SELib/ia32.h>
 #include <SELib/Ept.h>
 #include <SELib/hvgdk.h>
+#include <Arch/Interrupts.h>
 
 bool bSetupDone = false;
-bool bFirstExitSetupDone = false;
+bool bCpuidVmcallCalled = false;
 
 UINT64 storageData[128] = { 0 };
 
 typedef BOOLEAN (*fnEptHandler) (UINT64 GuestPhysicalAddr);
-fnEptHandler pEptHandler = 0;
 
 COMMAND_DATA GetCommand(svm::Vmcb* vmcb, UINT64 pCmd) {
 	COMMAND_DATA cmd = { 0 };
@@ -26,6 +26,8 @@ COMMAND_DATA GetCommand(svm::Vmcb* vmcb, UINT64 pCmd) {
 bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 	if(!vmcall::IsVmcall(context->r9))
 		return false;
+
+	bCpuidVmcallCalled = true;
 
 	switch (context->rcx) {
 	case VMCALL_GET_CR3: {
@@ -58,7 +60,8 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 		vmcb->NestedPageTableCr3() = cmd.cr3.value;
 		vmcb->ControlArea.TlbControl.layout.TlbControl = 0x1;
 		vmcb->ControlArea.GMETEnable = false;
-		
+		bitmap::SetBit(&storageData[EPT_OS_INIT_BITMAP], CPU::ApicId(), true);
+
 		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
 		break;
 	}
@@ -87,8 +90,9 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 	case VMCALL_READ_VIRT: {
 		auto cmd = GetCommand(vmcb, context->rdx);
 		DWORD64 cr3 = context->r8;
-		if (!cr3)
-			cr3 = vmcb->Cr3();
+		if (!cr3) {
+			cr3 = storageData[VMX_ROOT_STORAGE::NTOSKRNL_CR3];
+		}
 
 		if (!cmd.read.pOutBuf) {
 			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
@@ -102,8 +106,9 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 	case VMCALL_WRITE_VIRT: {
 		auto cmd = GetCommand(vmcb, context->rdx);
 		DWORD64 cr3 = context->r8;
-		if (!cr3)
-			cr3 = vmcb->Cr3();
+		if (!cr3) {
+			cr3 = storageData[VMX_ROOT_STORAGE::NTOSKRNL_CR3];
+		}
 
 		if (!cmd.write.pInBuf) {
 			vmcb->Rax() = VMX_ROOT_ERROR::VMXROOT_TRANSLATE_FAILURE;
@@ -150,16 +155,22 @@ bool HandleCpuid(svm::Vmcb* vmcb, svm::pguest_context context) {
 
 		break;
 	}
-	case VMCALL_REGISTER_EPT_HANDLER: {
-		auto cmd = GetCommand(vmcb, context->rdx);
-		if (!cmd.handler) {
-			vmcb->Rax() = VMX_ROOT_ERROR::INVALID_GUEST_PARAM;
-			break;
-		}
-
-		pEptHandler = (fnEptHandler)cmd.handler;
+	case VMCALL_DISABLE_EPT: {
+		vmcb->ControlArea.NpEnable = false;
 		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
+		break;
+	}
+	case VMCALL_ENABLE_EPT: {
+		vmcb->ControlArea.NpEnable = true;
+		vmcb->Rax() = VMX_ROOT_ERROR::SUCCESS;
+		break;
+	}
+	case VMCALL_GET_VMCB: {
+		auto cmd = GetCommand(vmcb, context->rdx);
 
+		cmd.pa = mm::translate((host_virt_t)vmcb);
+
+		vmcb->Rax() = mm::copy_guest_virt(__readcr3(), (u64)&cmd, vmcb->Cr3(), (u64)context->rdx, sizeof(cmd));
 		break;
 	}
 	default: {
@@ -183,6 +194,98 @@ void RootSetup() {
 	}
 }
 
+UINT64 GetGPRNumberForCrExit(svm::Vmcb* vmcb) {
+	//DbgMsg("[SVM] ExitInfo1: 0x%x", (state->GuestVmcb->ControlArea.ExitInfo1));
+	//DbgMsg("[SVM] GPR number: 0x%x", (state->GuestVmcb->ControlArea.ExitInfo1 & 15));
+	return (vmcb->ControlArea.ExitInfo1 & 15);
+}
+
+UINT64* GetRegisterForCrExit(svm::Vmcb* vmcb, svm::pguest_context context) {
+	switch (GetGPRNumberForCrExit(vmcb)) {
+	case 0:
+		return &vmcb->Rax();
+	case 1:
+		return &context->rcx;
+	case 2:
+		return &context->rdx;
+	case 3:
+		return &context->rbx;
+	case 4:
+		return &vmcb->Rsp();
+	case 5:
+		return &context->rbp;
+	case 6:
+		return &context->rsi;
+	case 7:
+		return &context->rdi;
+	case 8:
+		return &context->r8;
+	case 9:
+		return &context->r9;
+	case 10:
+		return &context->r10;
+	case 11:
+		return &context->r11;
+	case 12:
+		return &context->r12;
+	case 13:
+		return &context->r13;
+	case 14:
+		return &context->r14;
+	case 15:
+		return &context->r15;
+	default:
+		return 0;
+	}
+}
+
+bool HandleCr4Write(svm::Vmcb* vmcb, svm::pguest_context context) {
+	UINT64* reg = GetRegisterForCrExit(vmcb, context);
+	CR4 cr4;
+	cr4.Flags = *reg;
+
+	/*GP: */
+	/*If an attempt is made to change CR4.PCIDE from 0 to 1 while CR3[11:0] ≠ 000H.*/
+	/*If an attempt is made to write a 1 to any reserved bit in CR4.*/
+	/*If an attempt is made to leave IA-32e mode by clearing CR4.PAE[bit 5].*/
+	if (cr4.PcidEnable == 1)
+	{
+		CR3 cr3;
+		cr3.Flags = vmcb->Cr3();
+		if (cr3.Flags & 0xFFF) {
+			return false;
+		}
+	}
+
+	if (cr4.Reserved1 || cr4.Reserved2 || cr4.Reserved3 || cr4.Reserved4) {
+		return false;
+	}
+
+	vmcb->StateSaveArea.Cr4 = cr4.Flags;
+	return true;
+}
+
+bool HandleCr0Write(svm::Vmcb* vmcb, svm::pguest_context context) {
+	UINT64* reg = GetRegisterForCrExit(vmcb, context);
+	CR0 cr0;
+	cr0.Flags = *reg;
+	CR4 cr4;
+	cr4.Flags = vmcb->StateSaveArea.Cr4;
+
+	if (cr0.Reserved1 || cr0.Reserved2 || cr0.Reserved3 || cr0.Reserved4) {
+		return false;
+	}
+
+	if (cr4.CETEnabled == 1)
+	{
+		cr4.CETEnabled = false;
+		vmcb->StateSaveArea.Cr4 = cr4.Flags;
+	}
+
+	vmcb->StateSaveArea.Cr0 = cr0.Flags;
+	return true;
+}
+
 auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) -> svm::pgs_base_struct
 {
 	RootSetup();
@@ -197,6 +300,11 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 	bool bIncRip = false;
 	bool bHandledExit = false;
 	vmcb->ControlArea.TlbControl.layout.TlbControl = 0;
+	if (bCpuidVmcallCalled) {
+		vmcb->ControlArea.InterceptCr.rw.write.layout.WriteCr4 = false;
+		vmcb->ControlArea.InterceptCr.rw.write.layout.WriteCr0 = false;
+		vmcb->ControlArea.InterceptCr0WritesOther = false;
+	}
 
 	switch (vmcb->ControlArea.ExitCode) {
 	case svm::SvmExitCode::VMEXIT_CPUID: {
@@ -205,12 +313,16 @@ auto vmexit_handler(void* unknown, void* unknown2, svm::pguest_context context) 
 		break;
 	}
 	case svm::SvmExitCode::VMEXIT_NPF: {
+		if (storageData[EPT_HANDLER_ADDRESS]
+			&& bitmap::GetBit(&storageData[EPT_OS_INIT_BITMAP], CPU::ApicId())
+			) {
+			auto pEptHandler = (fnEptHandler)storageData[EPT_HANDLER_ADDRESS];
+			pEptHandler(vmcb->ControlArea.ExitInfo2);
+			bHandledExit = true;
+		}
 		break;
 	}
 	default: {
-		if (pEptHandler) {
-			bHandledExit = pEptHandler(vmcb->ControlArea.ExitInfo2);
-		}
 		break;
 	}
 	}

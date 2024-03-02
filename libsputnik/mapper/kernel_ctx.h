@@ -114,7 +114,6 @@ namespace mapper
 			hook::remove(psyscall_func);
 			return result;
 		}
-	private:
 
 		//
 		// find and map the physical page of a syscall into this process
@@ -131,6 +130,7 @@ namespace mapper
 		//
 		void* get_proc_base(unsigned pid) const;
 
+	private:
 		bool bPiddbClear;
 	};
 }
