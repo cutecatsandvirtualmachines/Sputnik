@@ -361,4 +361,4 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/CheatDriver/vcpkg_installed/x64-windows-static
+/CheatDriver/vcpkg_installed/*
