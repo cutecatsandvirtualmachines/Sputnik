@@ -149,7 +149,7 @@
     </DriverSign>
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)libsputnik;$(SolutionDir)SharedCheatLibrary;.\include;..\SKLib\SKLib\include;..\SKLib\SKLib-v\include;$(ProjectDir)../SharedCheatLibrary/SharedCheatLibrary;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)libsputnik;$(SolutionDir);$(SolutionDir)SharedCheatLibrary;.\include;..\SKLib\SKLib\include;..\SKLib\SKLib-v\include;$(ProjectDir)../SharedCheatLibrary/SharedCheatLibrary;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
       <ControlFlowGuard>false</ControlFlowGuard>
       <Optimization>MaxSpeed</Optimization>
@@ -172,7 +172,7 @@
     </DriverSign>
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)libsputnik;$(SolutionDir)SharedCheatLibrary;.\include;..\SKLib\SKLib\include;..\SKLib\SKLib-v\include;$(ProjectDir)../SharedCheatLibrary/SharedCheatLibrary;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)libsputnik;$(SolutionDir)SharedCheatLibrary;.\include;..\SKLib\SKLib\include;..\SKLib\SKLib-v\include;$(ProjectDir)../SharedCheatLibrary/SharedCheatLibrary;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>BUILD_SPOOFER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <ControlFlowGuard>false</ControlFlowGuard>
@@ -185,7 +185,7 @@
     <Link>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
       <AdditionalLibraryDirectories>$(SolutionDir)$(PlatformTarget)\$(Configuration);$(OutDir);</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SKLib-v.lib;%(AdditionalDependencies);$(KernelBufferOverflowLib);$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfLdr.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfDriverEntry.lib</AdditionalDependencies>
+      <AdditionalDependencies>SKLib-v.lib;libsputnik.lib;%(AdditionalDependencies);$(KernelBufferOverflowLib);$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfLdr.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfDriverEntry.lib</AdditionalDependencies>
       <EntryPointSymbol>DriverEntry</EntryPointSymbol>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
     </Link>

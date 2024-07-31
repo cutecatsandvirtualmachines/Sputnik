@@ -332,10 +332,6 @@ PspRundownSingleProcess(
 	IN PEPROCESS Process,
 	IN DWORD64 Flags
 ) {
-	if (Process == (PEPROCESS)identity::LastMappedEprocess()) {
-		identity::ResetCache();
-		DbgMsg("[DRIVER] Cheat process is exiting!");
-	}
 	int i = 0;
 #ifdef INTERNAL_FACILITY
 	int len = vModBackups->length();
@@ -777,9 +773,6 @@ PspInsertProcess(
 				procInfo.bDead = false;
 
 				bFound = true;
-
-				if (procInfo.bPause)
-					procInfo.lock = true;
 			}
 
 			if (bFound)
@@ -1441,7 +1434,6 @@ NTSTATUS comms::Entry(KERNEL_REQUEST* pKernelRequest)
 
 		PROC_INFO procInfo;
 		procInfo.pImageName = pProcNameCopy;
-		procInfo.bPause = kernelRequest.procInfo.bPause;
 		procInfo.mapInfo = kernelRequest.procInfo.mapInfo;
 		procInfo.cr3 = kernelRequest.procInfo.cr3;
 		procInfo.pRequestor = (ULONG64)CurrentProcess();

@@ -1,9 +1,9 @@
 [submodule "SELib"]
 	path = SELib
-	url = https://github.com/BomboBombone/SELib
+	url = https://github.com/cutecatsandvirtualmachines/SELib.git
 [submodule "SharedCheatLibrary"]
 	path = SharedCheatLibrary
-	url = http://git.dev-server.warwick.internal/TheItalian/SharedCheatLibrary.git
+	url = https://github.com/cutecatsandvirtualmachines/SharedCheatLibrary.git
 [submodule "SKLib"]
 	path = SKLib
 	url = https://github.com/cutecatsandvirtualmachines/SKLib.git
