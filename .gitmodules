@@ -6,4 +6,4 @@
 	url = http://git.dev-server.warwick.internal/TheItalian/SharedCheatLibrary.git
 [submodule "SKLib"]
 	path = SKLib
-	url = http://git.dev-server.warwick.internal/CheatKernel/SKLib.git
+	url = https://github.com/cutecatsandvirtualmachines/SKLib.git
